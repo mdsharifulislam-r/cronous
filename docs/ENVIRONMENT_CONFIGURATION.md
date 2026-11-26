@@ -93,15 +93,23 @@ The worker takes the shared process variables above, plus:
 | `CHRONOS_LEASE_MS` | `30000` | Must match the server |
 | `CHRONOS_WEBHOOK_ALLOW_PRIVATE`, `CHRONOS_WEBHOOK_ALLOWED_CIDRS` | as server | Used when consuming `HTTP` |
 
+## Container image
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `CHRONOS_MIGRATE_ON_START` | `false` | Apply pending database migrations before the command starts (for single `docker run` setups; compose uses its `migrate` service). Safe with several replicas |
+
 ## Docker Compose only
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `POSTGRES_USER`, `POSTGRES_DB` | `chronos` | Bundled PostgreSQL (compose.yaml) |
 | `POSTGRES_PASSWORD`, `REDIS_PASSWORD` | – (required) | Bundled PostgreSQL and Redis; use `openssl rand -hex 32` |
+| `CHRONOS_VERSION` | `latest` (a release's own compose file: that release) | Image tag to run, e.g. `0.1.0` |
+| `CHRONOS_IMAGE`, `CHRONOS_DASHBOARD_IMAGE` | `ghcr.io/mdsharifulislam-r/chronos`, `…/chronos-dashboard` | Image names, for a mirror or private registry |
 | `CHRONOS_HTTP_BIND` | `127.0.0.1` | Host interface the API is published on |
 | `CHRONOS_HTTP_PORT` | `8080` | Host port |
-| `CHRONOS_WORKER_HANDLERS_DIR` | `apps/worker/examples` | Host directory mounted read-only at `/handlers` |
+| `CHRONOS_WORKER_HANDLERS_DIR` | `./handlers` (next to the compose file) | Host directory mounted read-only at `/handlers` |
 | `CHRONOS_WORKER_HANDLERS_FILE` | `handlers.js` | File in that directory |
 | `CHRONOS_EXTERNAL_NETWORK` | – | Existing Docker network to join (compose.network.yaml) |
 
@@ -119,7 +127,7 @@ The worker takes the shared process variables above, plus:
 | --- | --- | --- |
 | `CHRONOS_API_URL` | – (required) | Chronos API base URL as seen from the dashboard server, without `/v1` (compose: `http://server:8080`) |
 | `DASHBOARD_SECURE_COOKIES` | `true` in production | `Secure` flag of the session cookie. Set it to `false` only for plain HTTP on a non-localhost host |
-| `NEXT_PUBLIC_CHRONOS_PUBLIC_URL` | – | Public API URL shown in SDK snippets (build-time; compose passes `CHRONOS_PUBLIC_URL`) |
+| `CHRONOS_PUBLIC_URL` | – | Public API URL shown in SDK snippets (read at runtime) |
 | `CHRONOS_DASHBOARD_BIND`, `CHRONOS_DASHBOARD_PORT` | `127.0.0.1`, `3000` | Compose only: where the dashboard is published |
 
 The browser never calls the API directly, so `CHRONOS_CORS_ORIGINS` is not needed for it.

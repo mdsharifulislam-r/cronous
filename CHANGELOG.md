@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-26
+
 ### Added
 
 * **Scheduling:** cron and one-time schedules with time zones, DST-correct evaluation, misfire
@@ -25,5 +27,6 @@ All notable changes to this project are documented here. The format follows
   survive edits.
 * **Dashboard:** a Next.js dashboard (`apps/dashboard`) with overview analytics, jobs, queues,
   schedules, executions, agents, workers, activity and settings, plus the lightweight built-in UI.
-* **Deployment:** Docker images, Compose files for bundled or existing infrastructure, a health and
+* **Deployment:** published multi-architecture images (`ghcr.io/mdsharifulislam-r/chronos`,
+  `ghcr.io/mdsharifulislam-r/chronos-dashboard`) with optional migrations on start, Compose files for bundled or existing infrastructure, a health and
   readiness check, and documentation.

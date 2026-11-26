@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/shared/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useWorkspace } from '@/hooks/use-workspace';
 import { EXECUTION_STATUS } from '@/lib/status';
+import { usePublicUrl } from '@/hooks/use-public-url';
 
 function Code({ children }: { children: string }) {
   return (
@@ -19,7 +20,7 @@ function Code({ children }: { children: string }) {
 export function DocsPage() {
   const { project } = useWorkspace();
   const slug = project?.slug ?? 'my-project';
-  const server = process.env.NEXT_PUBLIC_CHRONOS_PUBLIC_URL || 'https://chronos.example.com';
+  const server = usePublicUrl();
   return (
     <div className="max-w-4xl">
       <PageHeader title="Documentation" description="Quick reference for this project. Full guides: docs/QUEUE_JOBS.md, docs/API_REFERENCE.md and docs/DEPLOYMENT_GUIDE.md in the Chronos repository." />

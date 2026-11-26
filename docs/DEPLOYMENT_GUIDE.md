@@ -1,13 +1,29 @@
 # Deploying Chronos
 
-All commands run from the repository root. Compose reads variables from `.env` through
-`--env-file`. Every variable is described in
-[ENVIRONMENT_CONFIGURATION.md](ENVIRONMENT_CONFIGURATION.md).
+Chronos ships as two container images, built for `linux/amd64` and `linux/arm64` and tagged
+with each release (`0.1.0`, `0.1`, `latest`):
+
+| Image | Runs |
+| --- | --- |
+| `ghcr.io/mdsharifulislam-r/chronos` | API server (default command), standalone scheduler (`node bin/scheduler/main.js`), worker (`node bin/worker/main.js`) and migrations (`/app/bin/migrate`) |
+| `ghcr.io/mdsharifulislam-r/chronos-dashboard` | Next.js dashboard |
+
+The compose files below pull these images; you do not need the source code. Download them
+from the latest release (or use the copies in `docker/` of a checkout; the commands are the same
+with `-f docker/compose.yaml`):
 
 ```bash
-cp .env.example .env
+curl -fsSLO https://github.com/mdsharifulislam-r/cronous/releases/latest/download/compose.yaml
+curl -fsSLO https://github.com/mdsharifulislam-r/cronous/releases/latest/download/compose.external.yaml
+curl -fsSLO https://github.com/mdsharifulislam-r/cronous/releases/latest/download/compose.network.yaml
+curl -fsSL  https://github.com/mdsharifulislam-r/cronous/releases/latest/download/env.example -o .env
 # generate secrets:  openssl rand -hex 32
 ```
+
+Every variable is described in [ENVIRONMENT_CONFIGURATION.md](ENVIRONMENT_CONFIGURATION.md).
+`CHRONOS_VERSION` in `.env` pins the image version (release downloads default to their own
+version; `latest` follows new releases). To build the images from source instead, add
+`-f docker/compose.build.yaml` and `--build` to the commands in a checkout.
 
 Passwords inside `DATABASE_URL` and `REDIS_URL` must be URL-safe (hex is) or
 percent-encoded.
@@ -19,8 +35,8 @@ migration container, and the server.
 
 ```bash
 # .env: set POSTGRES_PASSWORD and REDIS_PASSWORD
-docker compose --env-file .env -f docker/compose.yaml up -d --build
-docker compose --env-file .env -f docker/compose.yaml logs server | grep -A3 "bootstrap token"
+docker compose up -d
+docker compose logs server | grep -A3 "bootstrap token"
 ```
 
 * Data lives in the named volumes `postgres-data` and `redis-data`.
@@ -31,7 +47,13 @@ docker compose --env-file .env -f docker/compose.yaml logs server | grep -A3 "bo
 
 ```bash
 # .env: set DATABASE_URL and REDIS_URL
-docker compose --env-file .env -f docker/compose.external.yaml up -d --build
+docker compose -f compose.external.yaml up -d
+```
+
+Or without compose, one container that applies migrations on start:
+
+```bash
+docker run -d --name chronos --restart unless-stopped -p 127.0.0.1:8080:8080   -e DATABASE_URL=postgresql://chronos:PASSWORD@db-host:5432/chronos   -e REDIS_URL=redis://:PASSWORD@redis-host:6379/0   -e CHRONOS_MIGRATE_ON_START=true   ghcr.io/mdsharifulislam-r/chronos:latest
 ```
 
 The migration container runs `prisma migrate deploy`. It is idempotent and safe to
@@ -57,7 +79,7 @@ CHRONOS_EXTERNAL_NETWORK=my_app_network
 DATABASE_URL=postgresql://chronos:...@my-postgres:5432/chronos
 REDIS_URL=redis://:...@my-redis:6379/3
 
-docker compose --env-file .env -f docker/compose.external.yaml -f docker/compose.network.yaml up -d --build
+docker compose -f compose.external.yaml -f compose.network.yaml up -d
 ```
 
 Your applications on that network then reach Chronos at `http://chronos-server-1:8080`
@@ -128,8 +150,9 @@ over the internal network. Its session lives in an httpOnly cookie, so the API n
 configuration.
 
 ```bash
-docker compose --env-file .env -f docker/compose.yaml --profile dashboard up -d --build
+docker compose --profile dashboard up -d
 # http://127.0.0.1:3000  (CHRONOS_DASHBOARD_BIND / CHRONOS_DASHBOARD_PORT)
+# CHRONOS_PUBLIC_URL: the public API URL shown in SDK snippets
 ```
 
 * Serve it over HTTPS through your reverse proxy in production. The session cookie is
@@ -186,9 +209,12 @@ The server container is a complete install: it embeds the scheduler loop and a w
 # .env
 CHRONOS_WORKER_HANDLERS_DIR=/srv/chronos-handlers     # contains handlers.js
 CHRONOS_WORKER_CONCURRENCY=10
-docker compose --env-file .env -f docker/compose.yaml --profile workers up -d
-docker compose --env-file .env -f docker/compose.yaml --profile workers up -d --scale worker=3
+docker compose --profile workers up -d
+docker compose --profile workers up -d --scale worker=3
 ```
+
+Without `CHRONOS_WORKER_HANDLERS_DIR`, compose mounts `./handlers` next to the compose file. The
+image also contains example handlers in `/app/bin/worker/examples`.
 
 Workers can run on other hosts. Run the same image with `node bin/worker/main.js` and
 point `DATABASE_URL` and `REDIS_URL` at your infrastructure over a private network. Workers
@@ -216,9 +242,12 @@ database once per `CHRONOS_EVENTS_POLL_MS`.
 ## Upgrades
 
 ```bash
-git pull
-docker compose --env-file .env -f docker/compose.yaml up -d --build
+# .env: CHRONOS_VERSION=<new version>   (or keep "latest")
+docker compose pull
+docker compose up -d
 ```
+
+From a source checkout: `git pull`, then the same command with `-f docker/compose.build.yaml --build`.
 
 Migrations run (`prisma migrate deploy`) before the new server starts. Migration
 `20261126000000_dashboard_support` only adds two indexes. On very large `job_executions`

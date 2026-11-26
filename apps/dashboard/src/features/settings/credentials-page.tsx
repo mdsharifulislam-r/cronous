@@ -21,6 +21,7 @@ import { formatDateTime, timeAgo } from '@/lib/format';
 import { qk } from '@/lib/query-keys';
 import { agentsService, projectService } from '@/services';
 import type { Credential, IssuedCredential } from '@/types/api';
+import { usePublicUrl } from '@/hooks/use-public-url';
 
 export function credentialState(credential: Credential, now = Date.now()): { label: string; tone: 'success' | 'warning' | 'danger' | 'neutral' } {
   if (credential.revokedAt) return { label: 'Revoked', tone: 'danger' };
@@ -31,7 +32,7 @@ export function credentialState(credential: Credential, now = Date.now()): { lab
 
 /** Shows a newly issued token exactly once, with usage snippets. */
 function IssuedToken({ issued, projectSlug, onClose }: { issued: IssuedCredential | null; projectSlug: string; onClose: () => void }) {
-  const server = process.env.NEXT_PUBLIC_CHRONOS_PUBLIC_URL || 'https://chronos.example.com';
+  const server = usePublicUrl();
   return (
     <Dialog open={issued !== null} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-xl">

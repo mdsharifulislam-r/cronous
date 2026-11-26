@@ -1,0 +1,28 @@
+# Overlay: build the images from this repository instead of pulling the published ones.
+# For contributors and for testing local changes:
+#
+#   docker compose --env-file .env -f docker/compose.yaml -f docker/compose.build.yaml up -d --build
+#
+# Works the same with compose.external.yaml.
+services:
+  migrate:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: chronos-server:local
+    pull_policy: build
+  server:
+    image: chronos-server:local
+    pull_policy: never
+  worker:
+    image: chronos-server:local
+    pull_policy: never
+  scheduler:
+    image: chronos-server:local
+    pull_policy: never
+  dashboard:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dashboard
+    image: chronos-dashboard:local
+    pull_policy: build

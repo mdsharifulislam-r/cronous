@@ -6,6 +6,7 @@
 #   DASHBOARD_SECURE_COOKIES  "true" (default) marks the session cookie Secure. Browsers accept Secure
 #                             cookies on https:// and on http://localhost; set "false" only for plain
 #                             http:// on another host name.
+#   CHRONOS_PUBLIC_URL        Public API URL shown in SDK and curl snippets
 ARG NODE_IMAGE=node:22-bookworm-slim
 
 FROM ${NODE_IMAGE} AS build
@@ -16,9 +17,6 @@ COPY apps/dashboard/package.json apps/dashboard/
 RUN pnpm install --frozen-lockfile --filter=@chronos/dashboard
 COPY apps/dashboard apps/dashboard
 ENV NEXT_TELEMETRY_DISABLED=1
-# NEXT_PUBLIC_* values are inlined at build time.
-ARG NEXT_PUBLIC_CHRONOS_PUBLIC_URL=
-ENV NEXT_PUBLIC_CHRONOS_PUBLIC_URL=${NEXT_PUBLIC_CHRONOS_PUBLIC_URL}
 RUN pnpm --filter=@chronos/dashboard build
 
 FROM ${NODE_IMAGE} AS runtime

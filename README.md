@@ -24,10 +24,27 @@ stable `idempotencyKey`).
 
 ## Quick start (Docker, bundled PostgreSQL + Redis)
 
+No checkout or build needed. Chronos is published as container images for `linux/amd64` and
+`linux/arm64`:
+
+| Image | Contents |
+| --- | --- |
+| `ghcr.io/mdsharifulislam-r/chronos` | API server, scheduler, worker and migrations |
+| `ghcr.io/mdsharifulislam-r/chronos-dashboard` | Web dashboard (optional) |
+
 ```bash
-cp .env.example .env              # set POSTGRES_PASSWORD and REDIS_PASSWORD (openssl rand -hex 32)
-docker compose --env-file .env -f docker/compose.yaml up -d --build
-docker compose --env-file .env -f docker/compose.yaml logs server | grep -A2 "bootstrap token"
+mkdir chronos && cd chronos
+curl -fsSLO https://github.com/mdsharifulislam-r/cronous/releases/latest/download/compose.yaml
+curl -fsSL  https://github.com/mdsharifulislam-r/cronous/releases/latest/download/env.example -o .env
+# edit .env: set POSTGRES_PASSWORD and REDIS_PASSWORD (openssl rand -hex 32)
+docker compose up -d                               # add --profile dashboard for the full dashboard
+docker compose logs server | grep -A2 "bootstrap token"
+```
+
+Already running PostgreSQL and Redis? Use the server image directly:
+
+```bash
+docker run -d --name chronos -p 127.0.0.1:8080:8080   -e DATABASE_URL=postgresql://chronos:PASSWORD@db-host:5432/chronos   -e REDIS_URL=redis://:PASSWORD@redis-host:6379/0   -e CHRONOS_MIGRATE_ON_START=true   ghcr.io/mdsharifulislam-r/chronos:latest
 ```
 
 Bootstrap once with that token (creates the admin, organization, project, a project API

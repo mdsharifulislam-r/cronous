@@ -1,6 +1,9 @@
 # Option B: Chronos only, connected to PostgreSQL and Redis you already operate.
 #
-#   docker compose --env-file .env -f docker/compose.external.yaml up -d --build
+#   docker compose --env-file .env -f docker/compose.external.yaml up -d
+#
+# Uses the published images; pin a release with CHRONOS_VERSION in .env. To build from source,
+# add docker/compose.build.yaml.
 #
 # Required in .env: DATABASE_URL, REDIS_URL. To share an existing Docker network (for
 # example, the one your Postgres/Redis containers live on), add the overlay:
@@ -26,16 +29,13 @@ x-chronos-env: &chronos-env
 
 services:
   migrate:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-    image: chronos-server:local
+    image: ${CHRONOS_IMAGE:-ghcr.io/mdsharifulislam-r/chronos}:${CHRONOS_VERSION:-latest}
     command: ["/app/bin/migrate"]
     environment: *chronos-env
     restart: "no"
 
   server:
-    image: chronos-server:local
+    image: ${CHRONOS_IMAGE:-ghcr.io/mdsharifulislam-r/chronos}:${CHRONOS_VERSION:-latest}
     restart: unless-stopped
     environment:
       <<: *chronos-env
@@ -67,7 +67,7 @@ services:
   #   docker compose ... --profile workers up -d
   # Mount a directory containing your handler module (see apps/worker/examples/handlers.js).
   worker:
-    image: chronos-server:local
+    image: ${CHRONOS_IMAGE:-ghcr.io/mdsharifulislam-r/chronos}:${CHRONOS_VERSION:-latest}
     profiles: ["workers"]
     restart: unless-stopped
     command: ["node", "bin/worker/main.js"]
@@ -78,7 +78,7 @@ services:
       CHRONOS_WORKER_HANDLERS: /handlers/${CHRONOS_WORKER_HANDLERS_FILE:-handlers.js}
       CHRONOS_HEALTH_PORT: "8081"
     volumes:
-      - ${CHRONOS_WORKER_HANDLERS_DIR:-../apps/worker/examples}:/handlers:ro
+      - ${CHRONOS_WORKER_HANDLERS_DIR:-./handlers}:/handlers:ro
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8081/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 15s
@@ -92,7 +92,7 @@ services:
   # Optional: a standalone scheduler, for running scheduling separately from the API.
   # Set CHRONOS_EMBEDDED_SCHEDULER=false on the server when you use it.
   scheduler:
-    image: chronos-server:local
+    image: ${CHRONOS_IMAGE:-ghcr.io/mdsharifulislam-r/chronos}:${CHRONOS_VERSION:-latest}
     profiles: ["scale"]
     restart: unless-stopped
     command: ["node", "bin/scheduler/main.js"]
@@ -111,11 +111,7 @@ services:
   # Optional full dashboard (Next.js): docker compose --profile dashboard up -d
   dashboard:
     profiles: ["dashboard"]
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile.dashboard
-      args:
-        NEXT_PUBLIC_CHRONOS_PUBLIC_URL: ${CHRONOS_PUBLIC_URL:-}
+    image: ${CHRONOS_DASHBOARD_IMAGE:-ghcr.io/mdsharifulislam-r/chronos-dashboard}:${CHRONOS_VERSION:-latest}
     restart: unless-stopped
     depends_on:
       server:
@@ -123,5 +119,6 @@ services:
     environment:
       CHRONOS_API_URL: http://server:8080
       DASHBOARD_SECURE_COOKIES: ${DASHBOARD_SECURE_COOKIES:-true}
+      CHRONOS_PUBLIC_URL: ${CHRONOS_PUBLIC_URL:-}
     ports:
       - "${CHRONOS_DASHBOARD_BIND:-127.0.0.1}:${CHRONOS_DASHBOARD_PORT:-3000}:3000"

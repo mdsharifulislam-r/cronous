@@ -99,6 +99,7 @@ jobs:
         run: |
           printf 'POSTGRES_PASSWORD=x\nREDIS_PASSWORD=y\nDATABASE_URL=postgresql://a:b@h:5432/d\nREDIS_URL=redis://h:6379/0\nCHRONOS_EXTERNAL_NETWORK=net\n' > ci.env
           docker compose --env-file ci.env -f docker/compose.yaml --profile workers --profile scale --profile dashboard config -q
+          docker compose --env-file ci.env -f docker/compose.yaml -f docker/compose.build.yaml --profile workers --profile scale --profile dashboard config -q
           docker compose --env-file ci.env -f docker/compose.external.yaml -f docker/compose.network.yaml --profile dashboard config -q
           docker compose -f docker/compose.test.yaml config -q
 

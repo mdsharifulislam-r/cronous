@@ -6,6 +6,8 @@
 #   node dist/main.js               server (default)
 #   node bin/scheduler/main.js      standalone scheduler
 #   node bin/worker/main.js         central worker (Mode C) / webhook worker
+#   /app/bin/migrate                apply database migrations and exit
+# Set CHRONOS_MIGRATE_ON_START=true to apply migrations before any of the above.
 # Pin NODE_IMAGE to a digest in production builds.
 ARG NODE_IMAGE=node:22-bookworm-slim
 
@@ -62,9 +64,10 @@ ENV NODE_ENV=production \
 WORKDIR /app
 COPY --from=build --chown=node:node /out/server /app
 COPY --chown=node:node --chmod=0755 docker/migrate.sh /app/bin/migrate
+COPY --chown=node:node --chmod=0755 docker/entrypoint.sh /app/bin/entrypoint
 USER node
 EXPOSE 8080
 HEALTHCHECK --interval=15s --timeout=3s --start-period=20s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:'+process.env.PORT+'/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
-ENTRYPOINT ["/usr/bin/tini", "--"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/app/bin/entrypoint"]
 CMD ["node", "dist/main.js"]
