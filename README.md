@@ -63,7 +63,15 @@ with `--profile dashboard` (<http://127.0.0.1:3000>, see [apps/dashboard](apps/d
 [docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md) for existing infrastructure, shared Docker
 networks, separate VPSs, workers and scaling.
 
-## SDK (agent mode)
+## Node.js SDK
+
+```bash
+npm install @chronos/sdk
+```
+
+One package for workers (run handlers in your app), producers (submit immediate and delayed
+jobs) and an admin client (manage jobs, schedules, queues and executions from code). Full
+guide: [packages/sdk/README.md](packages/sdk/README.md).
 
 ```ts
 // src/config/chronos.ts
@@ -114,6 +122,19 @@ Task options: `schedule` (5-field cron) or `runAt`, `timezone`, `misfirePolicy`
 (`ALLOW` | `FORBID`), `queue`, `priority`, `maxConcurrency`, `payloadSchema`. Throw `NonRetryableError` for permanent failures. Tasks without a
 schedule run when triggered from the API or dashboard. A complete example lives in
 [examples/sdk-app](examples/sdk-app).
+
+Manage Chronos from code with a project API key (`chr_p_`):
+
+```ts
+import { ChronosAdmin } from '@chronos/sdk';
+
+const admin = new ChronosAdmin({ server: process.env.CHRONOS_SERVER!, project: 'storefront' }); // token: CHRONOS_API_KEY
+await admin.jobs.create({ name: 'sync-crm', mode: 'HTTP', http: { url: 'https://app.example.com/hooks/sync', method: 'POST' }, schedule: { cron: '*/15 * * * *' } });
+const run = await admin.jobs.trigger('daily-report');
+const done = await admin.executions.wait(run.id);              // SUCCEEDED, FAILED, …
+for await (const failed of admin.executions.iterate({ status: 'DEAD_LETTERED' })) await admin.executions.retry(failed.id);
+await admin.queues.pause('emails');
+```
 
 ## HTTP webhook and worker jobs
 

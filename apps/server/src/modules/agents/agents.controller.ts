@@ -93,6 +93,25 @@ export class AgentsController {
     return { projectId: project.id, projectSlug: project.slug, timezone: project.timezone, credentialId: principal.credentialId };
   }
 
+  /**
+   * The project a project API key or agent token belongs to. Lets clients (the SDK's admin
+   * client) address project-scoped routes knowing only the token and the project slug.
+   */
+  @Get('identity')
+  @AllowPrincipals('project', 'agent')
+  async credentialIdentity(@CurrentPrincipal() principal: Principal) {
+    if (principal.type === 'user') throw AppException.forbidden();
+    const project = await this.prisma.project.findUniqueOrThrow({ where: { id: principal.projectId }, select: { id: true, slug: true, timezone: true } });
+    return {
+      kind: principal.type === 'project' ? 'PROJECT' : 'AGENT',
+      projectId: project.id,
+      projectSlug: project.slug,
+      organizationId: principal.organizationId,
+      timezone: project.timezone,
+      credentialId: principal.credentialId,
+    };
+  }
+
   /** Central workers are installation-wide infrastructure; any signed-in user may view them. */
   @Get('workers')
   async listWorkers() {

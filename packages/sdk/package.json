@@ -1,32 +1,19 @@
 {
   "name": "@chronos/sdk",
   "version": "0.1.0",
-  "description": "Chronos SDK: register job handlers in your application and run them on Chronos' schedule over an outbound WebSocket",
-  "license": "Apache-2.0",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "files": [
-    "dist"
+  "description": "Chronos client for Node.js: run job handlers in your app, submit immediate and delayed jobs, and manage jobs, schedules, queues and executions",
+  "keywords": [
+    "chronos",
+    "job-scheduler",
+    "cron",
+    "queue",
+    "background-jobs",
+    "delayed-jobs",
+    "task-queue",
+    "scheduler",
+    "worker"
   ],
-  "engines": {
-    "node": ">=20.11.0"
-  },
-  "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
-    "lint": "eslint . --max-warnings=0"
-  },
-  "dependencies": {
-    "@chronos/protocol": "workspace:*",
-    "ws": "8.23.0"
-  },
-  "devDependencies": {
-    "@types/node": "22.20.6",
-    "@types/ws": "8.18.2",
-    "typescript": "5.9.3",
-    "vitest": "3.2.7"
-  },
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/mdsharifulislam-r/cronous.git",
@@ -35,5 +22,48 @@
   "homepage": "https://github.com/mdsharifulislam-r/cronous#readme",
   "bugs": {
     "url": "https://github.com/mdsharifulislam-r/cronous/issues"
+  },
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint . --max-warnings=0"
+  },
+  "dependencies": {
+    "cron-parser": "5.10.6",
+    "ws": "8.23.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@chronos/protocol": "workspace:*",
+    "@types/node": "22.20.6",
+    "@types/ws": "8.18.2",
+    "esbuild": "0.28.2",
+    "typescript": "5.9.3",
+    "vitest": "3.2.7"
   }
 }

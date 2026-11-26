@@ -29,7 +29,7 @@ export class ChronosConnectionError extends Error {
   }
 }
 
-/** A REST call to Chronos failed (job submission or cancellation). */
+/** A REST call to Chronos failed. */
 export class ChronosRequestError extends Error {
   constructor(
     message: string,
@@ -43,7 +43,7 @@ export class ChronosRequestError extends Error {
   }
 }
 
-/** 400: the submission is invalid (unknown fields, bad delay, payload fails the job's schema). */
+/** 400: the request is invalid (unknown fields, bad delay, payload fails the job's schema). */
 export class ChronosValidationError extends ChronosRequestError {
   override name = 'ChronosValidationError';
 }
@@ -58,7 +58,19 @@ export class ChronosNotFoundError extends ChronosRequestError {
   override name = 'ChronosNotFoundError';
 }
 
-/** 409: e.g. the job is disabled. */
+/** 409: a state conflict, e.g. the job is disabled, a name exists, or the execution already finished. */
 export class ChronosConflictError extends ChronosRequestError {
   override name = 'ChronosConflictError';
+}
+
+/** ChronosAdmin.executions.wait() gave up before the execution finished. */
+export class ChronosWaitTimeoutError extends Error {
+  constructor(
+    message: string,
+    /** The status when waiting stopped. */
+    readonly lastStatus: string,
+  ) {
+    super(message);
+    this.name = 'ChronosWaitTimeoutError';
+  }
 }

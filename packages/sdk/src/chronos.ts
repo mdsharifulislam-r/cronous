@@ -17,10 +17,13 @@ import {
   serverMessageSchema,
 } from '@chronos/protocol';
 import { agentSocketUrl, reconnectDelay } from './backoff';
-import { QueueOptions, QueuedExecution, SubmissionClient } from './client';
+import { QueueOptions, QueuedExecution, SubmissionClient, projectIdResolver } from './client';
+import { HttpClient } from './http';
+import { SDK_VERSION } from './version';
+import { ChronosAdmin } from './admin';
 import { ChronosConfigError, ChronosConnectionError, NonRetryableError } from './errors';
 
-export const SDK_VERSION = '0.1.0';
+export { SDK_VERSION } from './version';
 
 export interface ChronosLogger {
   debug(message: string, ...args: unknown[]): void;
@@ -172,12 +175,13 @@ export class Chronos extends EventEmitter {
     this.options = { ...options, concurrency, shutdownTimeoutMs: options.shutdownTimeoutMs ?? 30_000 };
     this.logger = options.logger === false ? noopLogger : (options.logger ?? defaultLogger());
     this.instanceId = options.instanceId ?? randomUUID();
-    this.submissions = new SubmissionClient({
+    const http = new HttpClient({
       server: options.server,
-      project: options.project,
       token: () => this.options.token ?? process.env.CHRONOS_AGENT_TOKEN,
+      missingTokenMessage: 'An agent token is required: pass "token" or set CHRONOS_AGENT_TOKEN',
       userAgent: `chronos-sdk-node/${SDK_VERSION}`,
     });
+    this.submissions = new SubmissionClient(http, projectIdResolver(http, options.project, '/v1/agent/identity'));
   }
 
   /**
@@ -202,6 +206,16 @@ export class Chronos extends EventEmitter {
    */
   cancel(executionId: string): Promise<boolean> {
     return this.submissions.cancel(executionId);
+  }
+
+  /**
+   * An admin client for the same server and project. Agent tokens cannot manage jobs, so
+   * pass a project API key (or set CHRONOS_API_KEY).
+   *
+   * @example const admin = chronos.admin({ token: process.env.CHRONOS_API_KEY });
+   */
+  admin(options: { token?: string; maxAttempts?: number; requestTimeoutMs?: number } = {}): ChronosAdmin {
+    return new ChronosAdmin({ server: this.options.server, project: this.options.project, ...options });
   }
 
   get status(): ChronosStatus {

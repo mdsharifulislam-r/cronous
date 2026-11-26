@@ -15,6 +15,10 @@ All notable changes to this project are documented here. The format follows
 * **Queue jobs:** immediate and delayed submissions (`chronos.queue()`, `POST /v1/projects/:id/queue`,
   batch), named queues with concurrency limits, priorities and pause/resume, per-job concurrency,
   JSON Schema payload validation, per-submission retry overrides, and cancellation before start.
+* **Node.js SDK** (`@chronos/sdk`, CommonJS and ES modules with TypeScript types): workers that run
+  handlers in your application, job submission, and `ChronosAdmin` for managing jobs, schedules,
+  queues, executions (wait for results, iterate, retry), agents and statistics from code.
+  `GET /v1/identity` tells a project API key which project it belongs to.
 * **Execution modes:** HTTP webhooks (signed, SSRF-protected), agents via `@chronos/sdk` over an
   outbound WebSocket, and central workers.
 * **Reliability:** PostgreSQL as the source of truth, transactional outbox to BullMQ, `SKIP LOCKED`

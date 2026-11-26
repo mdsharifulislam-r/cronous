@@ -3,7 +3,8 @@ name: Release
 # Push a version tag (git tag v0.1.0 && git push origin v0.1.0) to publish:
 #   ghcr.io/<owner>/chronos:<version>            server, scheduler, worker, migrations
 #   ghcr.io/<owner>/chronos-dashboard:<version>  Next.js dashboard
-# for linux/amd64 and linux/arm64, and a GitHub release with compose.yaml and env.example.
+# for linux/amd64 and linux/arm64, the Node.js SDK to npm (needs the NPM_TOKEN secret),
+# and a GitHub release with compose.yaml and env.example.
 on:
   push:
     tags: ['v*.*.*']
@@ -73,9 +74,44 @@ jobs:
           cache-from: type=gha,scope=release-${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=release-${{ matrix.image }}
 
+  npm:
+    name: Publish SDK to npm
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write # npm provenance
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '9.15.0'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --frozen-lockfile
+      - name: Set version from tag
+        working-directory: packages/sdk
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+          sed -i "s/SDK_VERSION = '[^']*'/SDK_VERSION = '$VERSION'/" src/version.ts
+      - run: pnpm turbo run build test --filter=./packages/sdk...
+      - name: Publish
+        working-directory: packages/sdk
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "$NODE_AUTH_TOKEN" ]; then echo "::error::Add an npm automation token as the NPM_TOKEN repository secret"; exit 1; fi
+          TAG=latest
+          case "$GITHUB_REF_NAME" in *-*) TAG=next ;; esac
+          pnpm publish --access public --tag "$TAG" --no-git-checks
+
   release:
     name: GitHub release
-    needs: images
+    needs: [images, npm]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

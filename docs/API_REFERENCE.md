@@ -16,7 +16,7 @@ Real-time events are in [WEBSOCKET_PROTOCOL.md](WEBSOCKET_PROTOCOL.md).
 | `chr_b_` | Bootstrap token | Server log on first start, or `CHRONOS_BOOTSTRAP_TOKEN` | `POST /v1/bootstrap` only; invalid after first use |
 | `chr_u_` | User session | `POST /v1/auth/login` (expires after `CHRONOS_USER_TOKEN_TTL_HOURS`) | All user routes |
 | `chr_p_` | Project API key | Credentials API | Routes marked **key** below, inside its own project only |
-| `chr_a_` | Agent token | Credentials API | The agent WebSocket (`/v1/agent/ws`), job submission (`POST …/queue`, `…/queue/batch`), cancelling not-yet-started executions, and `GET /v1/agent/identity` |
+| `chr_a_` | Agent token | Credentials API | The agent WebSocket (`/v1/agent/ws`), job submission (`POST …/queue`, `…/queue/batch`), cancelling not-yet-started executions, `GET /v1/agent/identity` and `GET /v1/identity` |
 
 Unknown, expired, revoked and malformed tokens all return the same `401 UNAUTHORIZED`.
 Token kinds that a route does not accept return `403 FORBIDDEN`.
@@ -257,6 +257,7 @@ Full contract, semantics and SDK usage: [QUEUE_JOBS.md](QUEUE_JOBS.md).
 | DELETE | `/v1/projects/:projectId/queues/:name` | ADMIN | user | `204`; `409` for `default`, queues with jobs, or unfinished executions |
 | POST | `/v1/projects/:projectId/queues/:name/pause`, `…/resume` | MEMBER | user, key | Queue |
 | GET | `/v1/agent/identity` | – | agent | `{projectId, projectSlug, timezone, credentialId}` (used by the SDK) |
+| GET | `/v1/identity` | – | key, agent | `{kind:"PROJECT"\|"AGENT", projectId, projectSlug, organizationId, timezone, credentialId}`: the project a credential belongs to (used by the SDK's admin client). User sessions get `403` |
 
 ## Schedules (calendar and validation)
 
