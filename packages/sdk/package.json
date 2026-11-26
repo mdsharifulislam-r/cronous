@@ -1,0 +1,39 @@
+{
+  "name": "@chronos/sdk",
+  "version": "0.1.0",
+  "description": "Chronos SDK: register job handlers in your application and run them on Chronos' schedule over an outbound WebSocket",
+  "license": "Apache-2.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint . --max-warnings=0"
+  },
+  "dependencies": {
+    "@chronos/protocol": "workspace:*",
+    "ws": "8.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.6",
+    "@types/ws": "8.18.2",
+    "typescript": "5.9.3",
+    "vitest": "3.2.7"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mdsharifulislam-r/cronous.git",
+    "directory": "packages/sdk"
+  },
+  "homepage": "https://github.com/mdsharifulislam-r/cronous#readme",
+  "bugs": {
+    "url": "https://github.com/mdsharifulislam-r/cronous/issues"
+  }
+}

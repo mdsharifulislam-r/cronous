@@ -1,0 +1,19 @@
+# Overlay: attach Chronos to an existing, externally created Docker network so it can
+# reach Postgres/Redis (and your applications can reach Chronos) by container name.
+# Use together with compose.yaml or compose.external.yaml:
+#
+#   docker compose --env-file .env -f docker/compose.external.yaml -f docker/compose.network.yaml up -d
+services:
+  migrate:
+    networks: [default, shared]
+  server:
+    networks: [default, shared]
+  worker:
+    networks: [default, shared]
+  scheduler:
+    networks: [default, shared]
+
+networks:
+  shared:
+    name: ${CHRONOS_EXTERNAL_NETWORK:?set CHRONOS_EXTERNAL_NETWORK in .env}
+    external: true

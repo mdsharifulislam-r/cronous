@@ -1,0 +1,24 @@
+{
+  "name": "@chronos/dashboard-lite",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Chronos lightweight bundled UI: static assets served by the server at /dashboard (the full dashboard is apps/dashboard)",
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "public"
+  ],
+  "scripts": {
+    "build": "node -e \"require('./index.js')\"",
+    "typecheck": "node --check public/app.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mdsharifulislam-r/cronous.git",
+    "directory": "apps/dashboard-lite"
+  },
+  "homepage": "https://github.com/mdsharifulislam-r/cronous#readme",
+  "bugs": {
+    "url": "https://github.com/mdsharifulislam-r/cronous/issues"
+  }
+}

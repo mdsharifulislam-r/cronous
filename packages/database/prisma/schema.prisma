@@ -1,0 +1,497 @@
+// Chronos durable data model. PostgreSQL is the source of truth for every job
+// definition, schedule and execution; Redis only carries transient delivery state.
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum CredentialKind {
+  USER // personal session token for the management API
+  PROJECT // server-to-server API key scoped to one project
+  AGENT // SDK agent token scoped to one project (WebSocket only)
+}
+
+enum ExecutionMode {
+  HTTP
+  AGENT
+  WORKER
+}
+
+enum JobSource {
+  API // created through the management API
+  SDK // declared in application code and synchronised on SDK start
+}
+
+enum ConcurrencyPolicy {
+  ALLOW // overlapping executions of the same job may run
+  FORBID // a new occurrence is skipped while one is still active
+}
+
+enum ScheduleType {
+  CRON
+  ONCE
+}
+
+enum ScheduleState {
+  ACTIVE
+  PAUSED
+  COMPLETED // ONCE schedules after they fired
+}
+
+enum MisfirePolicy {
+  FIRE_ONCE // run one catch-up execution for all missed occurrences
+  SKIP // drop missed occurrences and wait for the next one
+  FIRE_ALL // run every missed occurrence, capped by maxCatchUp
+}
+
+enum ExecutionTrigger {
+  SCHEDULE // a schedule occurrence
+  MANUAL // POST /jobs/:id/trigger (dashboard "run now")
+  QUEUE // submitted for immediate or delayed execution (REST /queue, SDK chronos.queue())
+}
+
+enum ExecutionStatus {
+  PENDING // durable row created, not yet handed to the queue
+  QUEUED // enqueued for delivery
+  RUNNING // claimed by an executor holding a lease
+  RETRY_SCHEDULED // failed attempt, waiting for backoff
+  SUCCEEDED
+  FAILED // terminal failure that is not retried (e.g. non-retryable error)
+  CANCELLED
+  DEAD_LETTERED // exhausted all attempts
+}
+
+enum AttemptStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+  TIMED_OUT
+  ABANDONED // executor lost its lease (crash, network partition)
+}
+
+enum LogLevel {
+  DEBUG
+  INFO
+  WARN
+  ERROR
+}
+
+enum ExecutorStatus {
+  ONLINE
+  DRAINING
+  OFFLINE
+}
+
+enum ActorType {
+  USER
+  CREDENTIAL
+  SYSTEM
+}
+
+// ---------------------------------------------------------------------------
+// Installation state
+// ---------------------------------------------------------------------------
+
+/// Singleton row (id = 1) inserted by the initial migration. Holds the one-time
+/// bootstrap token hash until the installation has been bootstrapped.
+model SystemState {
+  id                 Int       @id @default(1)
+  bootstrapTokenHash String?   @map("bootstrap_token_hash")
+  bootstrappedAt     DateTime? @map("bootstrapped_at") @db.Timestamptz(3)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("system_state")
+}
+
+// ---------------------------------------------------------------------------
+// Tenancy and identity
+// ---------------------------------------------------------------------------
+
+model Organization {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  memberships Membership[]
+  projects    Project[]
+  auditLogs   AuditLog[]
+
+  @@map("organizations")
+}
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  email        String    @unique
+  name         String
+  passwordHash String    @map("password_hash")
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  memberships        Membership[]
+  credentials        ApiCredential[] @relation("UserCredentials")
+  createdCredentials ApiCredential[] @relation("CredentialCreator")
+
+  @@map("users")
+}
+
+model Membership {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  role           OrgRole
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@map("memberships")
+}
+
+model Project {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  name           String
+  slug           String
+  /// Default IANA time zone for jobs that do not specify one.
+  timezone       String    @default("UTC")
+  archivedAt     DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  credentials  ApiCredential[]
+  jobs         Job[]
+  executions   JobExecution[]
+  agents       Agent[]
+  queues       Queue[]
+
+  @@unique([organizationId, slug])
+  @@map("projects")
+}
+
+/// Opaque bearer credentials. Only the SHA-256 digest of the token is stored.
+/// A CHECK constraint (see migration) enforces: USER => user_id set,
+/// PROJECT/AGENT => project_id set.
+model ApiCredential {
+  id              String         @id @default(uuid()) @db.Uuid
+  kind            CredentialKind
+  name            String
+  /// First characters of the token, safe to display (e.g. "chr_p_AbCdEf").
+  displayPrefix   String         @map("display_prefix")
+  tokenHash       String         @unique @map("token_hash")
+  userId          String?        @map("user_id") @db.Uuid
+  projectId       String?        @map("project_id") @db.Uuid
+  createdByUserId String?        @map("created_by_user_id") @db.Uuid
+  /// Set on the replacement credential when created by rotation.
+  rotatedFromId   String?        @unique @map("rotated_from_id") @db.Uuid
+  expiresAt       DateTime?      @map("expires_at") @db.Timestamptz(3)
+  lastUsedAt      DateTime?      @map("last_used_at") @db.Timestamptz(3)
+  revokedAt       DateTime?      @map("revoked_at") @db.Timestamptz(3)
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user        User?          @relation("UserCredentials", fields: [userId], references: [id], onDelete: Cascade)
+  project     Project?       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy   User?          @relation("CredentialCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  rotatedFrom ApiCredential? @relation("CredentialRotation", fields: [rotatedFromId], references: [id], onDelete: SetNull)
+  rotatedTo   ApiCredential? @relation("CredentialRotation")
+  agents      Agent[]
+
+  @@index([projectId, kind])
+  @@index([userId])
+  @@map("api_credentials")
+}
+
+// ---------------------------------------------------------------------------
+// Jobs and schedules
+// ---------------------------------------------------------------------------
+
+model Job {
+  id                String            @id @default(uuid()) @db.Uuid
+  projectId         String            @map("project_id") @db.Uuid
+  /// Admission lane for every execution of this job (scheduled, manual, queued).
+  queueId           String            @map("queue_id") @db.Uuid
+  /// Stable key used by SDK handlers, e.g. "daily-report".
+  name              String
+  description       String?
+  mode              ExecutionMode
+  source            JobSource         @default(API)
+  /// Disabled jobs never run (neither scheduled nor manual).
+  enabled           Boolean           @default(true)
+  /// HTTP mode only: { url, method, headers, ... } validated by the API layer.
+  httpConfig        Json?             @map("http_config")
+  payload           Json?
+  timeoutMs         Int               @default(300000) @map("timeout_ms")
+  maxAttempts       Int               @default(3) @map("max_attempts")
+  retryBackoffMs    Int               @default(10000) @map("retry_backoff_ms")
+  retryBackoffMaxMs Int               @default(3600000) @map("retry_backoff_max_ms")
+  concurrencyPolicy ConcurrencyPolicy @default(ALLOW) @map("concurrency_policy")
+  /// Executions of this job admitted at once (QUEUED + RUNNING). NULL = no job-level limit.
+  maxConcurrency    Int?              @map("max_concurrency")
+  /// Default priority (0-100, higher first). NULL = the queue's default.
+  priority          Int?
+  /// Optional JSON Schema every submitted payload must satisfy.
+  payloadSchema     Json?             @map("payload_schema")
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  project    Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  // NoAction (checked at the end of the statement), not Restrict: deleting a project
+  // cascades to its jobs and queues within one statement.
+  queue      Queue          @relation(fields: [queueId], references: [id], onDelete: NoAction)
+  schedule   JobSchedule?
+  executions JobExecution[]
+
+  @@unique([projectId, name])
+  @@index([queueId])
+  @@map("jobs")
+}
+
+model JobSchedule {
+  id              String        @id @default(uuid()) @db.Uuid
+  jobId           String        @unique @map("job_id") @db.Uuid
+  type            ScheduleType
+  cronExpression  String?       @map("cron_expression")
+  runAt           DateTime?     @map("run_at") @db.Timestamptz(3)
+  timezone        String
+  state           ScheduleState @default(ACTIVE)
+  misfirePolicy   MisfirePolicy @default(FIRE_ONCE) @map("misfire_policy")
+  /// An occurrence later than this is considered misfired.
+  misfireGraceMs  Int           @default(60000) @map("misfire_grace_ms")
+  maxCatchUp      Int           @default(10) @map("max_catch_up")
+  /// Next occurrence to dispatch. NULL when paused or completed.
+  nextRunAt       DateTime?     @map("next_run_at") @db.Timestamptz(3)
+  lastScheduledAt DateTime?     @map("last_scheduled_at") @db.Timestamptz(3)
+  /// Incremented on every definition change; guards against stale updates.
+  version         Int           @default(1)
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  // Scheduler hot path: WHERE state = 'ACTIVE' AND next_run_at <= now() ... FOR UPDATE SKIP LOCKED
+  @@index([state, nextRunAt])
+  @@map("job_schedules")
+}
+
+/// A named admission lane of a project. Jobs name *what* runs; queues control *how many*
+/// run at once, in which order, and whether anything is admitted at all (pause).
+model Queue {
+  id               String   @id @default(uuid()) @db.Uuid
+  projectId        String   @map("project_id") @db.Uuid
+  name             String
+  description      String?
+  /// Executions admitted at once (QUEUED + RUNNING). NULL = unlimited.
+  concurrencyLimit Int?     @map("concurrency_limit")
+  /// Priority for executions whose job sets none (0-100, higher first).
+  defaultPriority  Int      @default(50) @map("default_priority")
+  /// Paused queues accept submissions but admit nothing until resumed.
+  paused           Boolean  @default(false)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  project    Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  jobs       Job[]
+  executions JobExecution[]
+
+  @@unique([projectId, name])
+  @@map("queues")
+}
+
+// ---------------------------------------------------------------------------
+// Executions
+// ---------------------------------------------------------------------------
+
+/// One logical run of a job (one scheduled occurrence or one manual trigger).
+/// Retries are JobAttempts of the same execution.
+model JobExecution {
+  id                String           @id @default(uuid()) @db.Uuid
+  jobId             String           @map("job_id") @db.Uuid
+  projectId         String           @map("project_id") @db.Uuid
+  trigger           ExecutionTrigger
+  /// The occurrence this execution represents (scheduled time, or trigger time).
+  scheduledFor      DateTime         @map("scheduled_for") @db.Timestamptz(3)
+  status            ExecutionStatus  @default(PENDING)
+  /// Queue the execution was admitted through (NULL only if that queue was deleted later).
+  queueId           String?          @map("queue_id") @db.Uuid
+  /// 0-100, higher is dispatched first within a queue.
+  priority          Int              @default(50)
+  /// Unique per job. Scheduled occurrences use "sched:<ISO time>", which makes a
+  /// duplicate dispatch of the same occurrence a unique-constraint violation.
+  idempotencyKey    String           @map("idempotency_key")
+  mode              ExecutionMode
+  payload           Json?
+  attemptCount      Int              @default(0) @map("attempt_count")
+  maxAttempts       Int              @map("max_attempts")
+  timeoutMs         Int              @map("timeout_ms")
+  /// Copied from the job at creation; overridable per submission.
+  retryBackoffMs    Int              @map("retry_backoff_ms")
+  retryBackoffMaxMs Int              @map("retry_backoff_max_ms")
+  /// When the next attempt becomes due (a future value means delayed).
+  nextAttemptAt     DateTime?        @map("next_attempt_at") @db.Timestamptz(3)
+  leaseOwner        String?          @map("lease_owner")
+  leaseExpiresAt    DateTime?        @map("lease_expires_at") @db.Timestamptz(3)
+  startedAt         DateTime?        @map("started_at") @db.Timestamptz(3)
+  finishedAt        DateTime?        @map("finished_at") @db.Timestamptz(3)
+  lastError         String?          @map("last_error")
+  result            Json?
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  job      Job            @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  project  Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  queue    Queue?         @relation(fields: [queueId], references: [id], onDelete: SetNull)
+  attempts JobAttempt[]
+  logs     ExecutionLog[]
+
+  @@unique([jobId, idempotencyKey])
+  @@index([status, nextAttemptAt]) // retry / outbox sweeper
+  @@index([status, priority(sort: Desc), nextAttemptAt]) // dispatcher order
+  @@index([queueId, status]) // queue admission counts
+  @@index([jobId, status]) // job admission counts, FORBID checks
+  @@index([status, leaseExpiresAt]) // abandoned-lease reaper
+  @@index([projectId, createdAt(sort: Desc)])
+  @@index([jobId, createdAt(sort: Desc)])
+  @@index([projectId, updatedAt]) // dashboard change feed
+  @@map("job_executions")
+}
+
+model JobAttempt {
+  id             String        @id @default(uuid()) @db.Uuid
+  executionId    String        @map("execution_id") @db.Uuid
+  attemptNumber  Int           @map("attempt_number")
+  status         AttemptStatus @default(RUNNING)
+  agentId        String?       @map("agent_id") @db.Uuid
+  workerId       String?       @map("worker_id") @db.Uuid
+  startedAt      DateTime      @default(now()) @map("started_at") @db.Timestamptz(3)
+  finishedAt     DateTime?     @map("finished_at") @db.Timestamptz(3)
+  leaseExpiresAt DateTime?     @map("lease_expires_at") @db.Timestamptz(3)
+  errorCode      String?       @map("error_code")
+  errorMessage   String?       @map("error_message")
+  httpStatus     Int?          @map("http_status")
+  output         Json?
+
+  execution JobExecution   @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  agent     Agent?         @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  worker    Worker?        @relation(fields: [workerId], references: [id], onDelete: SetNull)
+  logs      ExecutionLog[]
+
+  @@unique([executionId, attemptNumber])
+  @@map("job_attempts")
+}
+
+model ExecutionLog {
+  id          BigInt   @id @default(autoincrement())
+  executionId String   @map("execution_id") @db.Uuid
+  attemptId   String?  @map("attempt_id") @db.Uuid
+  level       LogLevel
+  message     String
+  data        Json?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  execution JobExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  attempt   JobAttempt?  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@index([executionId, id])
+  @@map("execution_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Executors
+// ---------------------------------------------------------------------------
+
+/// An SDK process connected over WebSocket (Mode B).
+model Agent {
+  id              String         @id @default(uuid()) @db.Uuid
+  projectId       String         @map("project_id") @db.Uuid
+  credentialId    String?        @map("credential_id") @db.Uuid
+  /// Random id generated by the SDK per process start.
+  instanceId      String         @map("instance_id")
+  hostname        String?
+  sdkVersion      String         @map("sdk_version")
+  protocolVersion Int            @map("protocol_version")
+  status          ExecutorStatus @default(ONLINE)
+  /// Job names this agent has handlers for.
+  handlers        String[]
+  metadata        Json?
+  connectedAt     DateTime       @default(now()) @map("connected_at") @db.Timestamptz(3)
+  lastHeartbeatAt DateTime       @default(now()) @map("last_heartbeat_at") @db.Timestamptz(3)
+  disconnectedAt  DateTime?      @map("disconnected_at") @db.Timestamptz(3)
+
+  project    Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  credential ApiCredential? @relation(fields: [credentialId], references: [id], onDelete: SetNull)
+  attempts   JobAttempt[]
+
+  @@unique([projectId, instanceId])
+  @@index([projectId, status])
+  @@map("agents")
+}
+
+/// A central Chronos worker process (Mode C).
+model Worker {
+  id              String         @id @default(uuid()) @db.Uuid
+  instanceId      String         @unique @map("instance_id")
+  hostname        String?
+  version         String
+  status          ExecutorStatus @default(ONLINE)
+  concurrency     Int
+  startedAt       DateTime       @default(now()) @map("started_at") @db.Timestamptz(3)
+  lastHeartbeatAt DateTime       @default(now()) @map("last_heartbeat_at") @db.Timestamptz(3)
+  stoppedAt       DateTime?      @map("stopped_at") @db.Timestamptz(3)
+
+  attempts JobAttempt[]
+
+  @@index([status, lastHeartbeatAt])
+  @@map("workers")
+}
+
+// ---------------------------------------------------------------------------
+// Audit
+// ---------------------------------------------------------------------------
+
+/// Append-only. Survives deletion of the organization it refers to.
+model AuditLog {
+  id             BigInt    @id @default(autoincrement())
+  organizationId String?   @map("organization_id") @db.Uuid
+  projectId      String?   @map("project_id") @db.Uuid
+  actorType      ActorType @map("actor_type")
+  actorId        String?   @map("actor_id")
+  action         String
+  targetType     String?   @map("target_type")
+  targetId       String?   @map("target_id")
+  metadata       Json?
+  requestId      String?   @map("request_id")
+  ipAddress      String?   @map("ip_address")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([action, createdAt(sort: Desc)])
+  @@index([projectId, createdAt(sort: Desc)])
+  @@map("audit_logs")
+}

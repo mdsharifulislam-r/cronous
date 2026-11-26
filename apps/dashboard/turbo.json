@@ -1,0 +1,11 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      "inputs": ["src/**", "public/**", "next.config.ts", "postcss.config.mjs", "tsconfig.json", "package.json"],
+      "outputs": [".next/**", "!.next/cache/**"],
+      "env": ["CHRONOS_API_URL", "NEXT_PUBLIC_*"]
+    }
+  }
+}

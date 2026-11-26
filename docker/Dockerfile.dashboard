@@ -1,0 +1,39 @@
+# syntax=docker/dockerfile:1.7
+# Chronos dashboard (Next.js, standalone output). Build from the repo root:
+#   docker build -f docker/Dockerfile.dashboard -t chronos-dashboard .
+# Runtime configuration (no rebuild needed):
+#   CHRONOS_API_URL           Chronos API base URL as seen from this container (e.g. http://server:8080)
+#   DASHBOARD_SECURE_COOKIES  "true" (default) marks the session cookie Secure. Browsers accept Secure
+#                             cookies on https:// and on http://localhost; set "false" only for plain
+#                             http:// on another host name.
+ARG NODE_IMAGE=node:22-bookworm-slim
+
+FROM ${NODE_IMAGE} AS build
+RUN corepack enable
+WORKDIR /repo
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc turbo.json tsconfig.base.json ./
+COPY apps/dashboard/package.json apps/dashboard/
+RUN pnpm install --frozen-lockfile --filter=@chronos/dashboard
+COPY apps/dashboard apps/dashboard
+ENV NEXT_TELEMETRY_DISABLED=1
+# NEXT_PUBLIC_* values are inlined at build time.
+ARG NEXT_PUBLIC_CHRONOS_PUBLIC_URL=
+ENV NEXT_PUBLIC_CHRONOS_PUBLIC_URL=${NEXT_PUBLIC_CHRONOS_PUBLIC_URL}
+RUN pnpm --filter=@chronos/dashboard build
+
+FROM ${NODE_IMAGE} AS runtime
+RUN apt-get update && apt-get install -y --no-install-recommends tini && rm -rf /var/lib/apt/lists/*
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    PORT=3000 \
+    HOSTNAME=0.0.0.0 \
+    DASHBOARD_SECURE_COOKIES=true
+WORKDIR /app
+COPY --from=build --chown=node:node /repo/apps/dashboard/.next/standalone ./
+COPY --from=build --chown=node:node /repo/apps/dashboard/.next/static ./apps/dashboard/.next/static
+USER node
+EXPOSE 3000
+HEALTHCHECK --interval=15s --timeout=3s --start-period=20s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+process.env.PORT+'/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["node", "apps/dashboard/server.js"]

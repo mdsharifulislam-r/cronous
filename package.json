@@ -1,0 +1,47 @@
+{
+  "name": "chronos",
+  "private": true,
+  "description": "Self-hosted distributed job scheduling and execution platform",
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "test:integration": "turbo run test:integration --concurrency=1",
+    "dev": "turbo run dev --filter=@chronos/server",
+    "dev:dashboard": "turbo run dev --filter=@chronos/dashboard",
+    "db:generate": "pnpm --filter @chronos/database db:generate",
+    "db:migrate": "pnpm --filter @chronos/database db:migrate:deploy",
+    "db:migrate:dev": "pnpm --filter @chronos/database db:migrate:dev",
+    "db:seed": "pnpm --filter @chronos/database db:seed",
+    "infra:test:up": "docker compose -f docker/compose.test.yaml up -d --wait",
+    "infra:test:down": "docker compose -f docker/compose.test.yaml down -v"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "eslint": "9.39.5",
+    "globals": "16.5.0",
+    "turbo": "2.11.13",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.74.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "effect": "3.22.5",
+      "deepmerge-ts": "8.0.2"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mdsharifulislam-r/cronous.git"
+  },
+  "homepage": "https://github.com/mdsharifulislam-r/cronous#readme",
+  "bugs": {
+    "url": "https://github.com/mdsharifulislam-r/cronous/issues"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "name": "@chronos/example-sdk-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Example application using @chronos/sdk (agent mode)",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "node --env-file-if-exists=.env dist/main.js",
+    "lint": "eslint . --max-warnings=0"
+  },
+  "dependencies": {
+    "@chronos/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.6",
+    "typescript": "5.9.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mdsharifulislam-r/cronous.git",
+    "directory": "examples/sdk-app"
+  },
+  "homepage": "https://github.com/mdsharifulislam-r/cronous#readme",
+  "bugs": {
+    "url": "https://github.com/mdsharifulislam-r/cronous/issues"
+  }
+}
