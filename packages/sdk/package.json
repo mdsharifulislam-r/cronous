@@ -1,5 +1,5 @@
 {
-  "name": "@cronouss/cronous",
+  "name": "@sharifulislam1/cronous",
   "version": "0.1.0",
   "description": "Chronos client for Node.js: run job handlers in your app, submit immediate and delayed jobs, and manage jobs, schedules, queues and executions",
   "keywords": [

@@ -113,7 +113,7 @@ The worker takes the shared process variables above, plus:
 | `CHRONOS_WORKER_HANDLERS_FILE` | `handlers.js` | File in that directory |
 | `CHRONOS_EXTERNAL_NETWORK` | – | Existing Docker network to join (compose.network.yaml) |
 
-## SDK (`@cronouss/cronous`, in your application)
+## SDK (`@sharifulislam1/cronous`, in your application)
 
 | Variable | Meaning |
 | --- | --- |

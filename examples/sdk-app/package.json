@@ -2,7 +2,7 @@
   "name": "@chronos/example-sdk-app",
   "version": "0.1.0",
   "private": true,
-  "description": "Example application using @cronouss/cronous (agent mode)",
+  "description": "Example application using @sharifulislam1/cronous (agent mode)",
   "main": "dist/main.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -11,7 +11,7 @@
     "lint": "eslint . --max-warnings=0"
   },
   "dependencies": {
-    "@cronouss/cronous": "workspace:*"
+    "@sharifulislam1/cronous": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "22.20.6",

@@ -214,7 +214,7 @@ export function JobForm({ projectId, projectTimeZone, job }: { projectId: string
             <>
               <div role="radiogroup" aria-label="Execution mode" className="grid gap-2 sm:grid-cols-3">
                 <ChoiceCard selected={values.mode === 'HTTP'} onSelect={() => setValue('mode', 'HTTP')} title="HTTP webhook" description="Chronos calls your endpoint." />
-                <ChoiceCard selected={values.mode === 'AGENT'} onSelect={() => setValue('mode', 'AGENT')} title="Agent" description="Runs in your app via @cronouss/cronous." />
+                <ChoiceCard selected={values.mode === 'AGENT'} onSelect={() => setValue('mode', 'AGENT')} title="Agent" description="Runs in your app via @sharifulislam1/cronous." />
                 <ChoiceCard selected={values.mode === 'WORKER'} onSelect={() => setValue('mode', 'WORKER')} title="Central worker" description="Runs in a Chronos worker process." />
               </div>
 

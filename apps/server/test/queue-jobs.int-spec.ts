@@ -4,7 +4,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { Prisma } from '@chronos/database';
 import { Dispatcher, ExecutionQueues, ExecutionStore, HttpExecutor, WorkerHandler, WorkerRuntime, bullJobId } from '@chronos/engine';
-import { Chronos, ChronosConfigError, ChronosNotFoundError, ChronosValidationError } from '@cronouss/cronous';
+import { Chronos, ChronosConfigError, ChronosNotFoundError, ChronosValidationError } from '@sharifulislam1/cronous';
 import { PrismaService } from '../src/infrastructure/prisma/prisma.service';
 import { RedisService } from '../src/infrastructure/redis/redis.service';
 import { SchedulerHost } from '../src/infrastructure/engine/scheduler-host';

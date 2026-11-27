@@ -263,12 +263,12 @@ importers:
         specifier: 4.6.7
         version: 4.6.7
     devDependencies:
-      '@cronouss/cronous':
-        specifier: workspace:*
-        version: link:../../packages/sdk
       '@nestjs/cli':
         specifier: 11.0.24
         version: 11.0.24(@swc/core@1.13.21(@swc/helpers@0.5.23))(@types/node@22.20.6)(esbuild@0.28.2)(lightningcss@1.33.0)
+      '@sharifulislam1/cronous':
+        specifier: workspace:*
+        version: link:../../packages/sdk
       '@swc/core':
         specifier: 1.13.21
         version: 1.13.21(@swc/helpers@0.5.23)
@@ -327,7 +327,7 @@ importers:
 
   examples/sdk-app:
     dependencies:
-      '@cronouss/cronous':
+      '@sharifulislam1/cronous':
         specifier: workspace:*
         version: link:../../packages/sdk
     devDependencies:
