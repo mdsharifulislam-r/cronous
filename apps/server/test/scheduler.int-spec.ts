@@ -26,7 +26,7 @@ describe('scheduling engine (PostgreSQL)', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
   });
 
   const jobsPath = () => `/v1/projects/${boot.project.id}/jobs`;

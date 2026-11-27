@@ -59,7 +59,7 @@ describe('queue jobs (immediate and delayed submissions)', () => {
   afterAll(async () => {
     hook.closeAllConnections();
     await new Promise((resolve) => hook.close(resolve));
-    await app.close();
+    await app?.close();
   });
 
   const userToken = () => boot.credentials.userToken.token;
@@ -471,7 +471,7 @@ describe('dispatcher wake-up', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
   });
 
   it('dispatches an immediate submission without waiting for the next tick', async () => {

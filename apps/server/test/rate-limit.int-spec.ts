@@ -28,7 +28,7 @@ describe('API rate limiting', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
   });
 
   it('limits each bearer token independently and reports the budget in headers', async () => {
@@ -85,7 +85,7 @@ describe('API rate limiting disabled', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
   });
 
   it('lets every request through and sends no rate-limit headers', async () => {

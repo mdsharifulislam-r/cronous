@@ -30,7 +30,17 @@ export async function resetState(app: NestExpressApplication): Promise<void> {
   const tables = await prisma.$queryRaw<{ tablename: string }[]>`
     SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> '_prisma_migrations'`;
   const list = tables.map((table) => `"public"."${table.tablename}"`).join(', ');
-  await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${list} RESTART IDENTITY CASCADE`);
+  // An app started with background services (embedded scheduler) may be querying while we
+  // truncate; PostgreSQL then aborts one side with a deadlock. Retry until the reset wins.
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${list} RESTART IDENTITY CASCADE`);
+      break;
+    } catch (error) {
+      if (attempt >= 5 || !isDeadlock(error)) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 50 * attempt));
+    }
+  }
   await prisma.$executeRawUnsafe(`INSERT INTO system_state (id, created_at, updated_at) VALUES (1, now(), now())`);
 
   // Only delete our namespace: never FLUSHDB a Redis that may be shared.
@@ -43,12 +53,24 @@ export async function resetState(app: NestExpressApplication): Promise<void> {
   } while (cursor !== '0');
 }
 
+function isDeadlock(error: unknown): boolean {
+  const meta = (error as { meta?: { code?: string } } | null)?.meta;
+  return meta?.code === '40P01' || (error instanceof Error && error.message.includes('deadlock detected'));
+}
+
 export async function startTestApp(overrides: Record<string, string | undefined> = {}): Promise<NestExpressApplication> {
   const app = await createApp(testConfig(overrides));
-  await app.init();
-  await resetState(app);
-  // init() already ran the bootstrap hook; the reset wiped its state, so run it again.
-  await app.get(BootstrapService).ensureBootstrapToken();
+  try {
+    await app.init();
+    await resetState(app);
+    // init() already ran the bootstrap hook; the reset wiped its state, so run it again.
+    await app.get(BootstrapService).ensureBootstrapToken();
+  } catch (error) {
+    // Never leak a half-started app: its background loops would keep running in this test
+    // process and take work from the suites that follow.
+    await app.close().catch(() => undefined);
+    throw error;
+  }
   return app;
 }
 

@@ -34,7 +34,7 @@ describe('agent mode (SDK over WebSocket)', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
   });
 
   function agent(overrides: Partial<ConstructorParameters<typeof Chronos>[0]> = {}): Chronos {

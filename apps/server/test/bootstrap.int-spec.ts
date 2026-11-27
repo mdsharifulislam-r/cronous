@@ -24,7 +24,7 @@ describe('bootstrap flow', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
   });
 
   it('reports status publicly', async () => {
@@ -107,7 +107,7 @@ describe('generated bootstrap token', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
   });
 
   it('is generated once and kept stable across restarts until used', async () => {

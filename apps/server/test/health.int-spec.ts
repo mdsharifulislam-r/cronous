@@ -11,7 +11,7 @@ describe('health endpoints (PostgreSQL + Redis)', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
   });
 
   it('GET /health/live responds without auth or prefix', async () => {

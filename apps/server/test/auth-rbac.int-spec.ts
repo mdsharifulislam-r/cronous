@@ -28,7 +28,7 @@ describe('authentication, organizations, projects and credentials', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
   });
 
   async function addMember(role: string, email: string) {

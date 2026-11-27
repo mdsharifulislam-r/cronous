@@ -62,7 +62,7 @@ describe('workers and webhook delivery', () => {
   afterAll(async () => {
     hook.closeAllConnections();
     await new Promise((resolve) => hook.close(resolve));
-    await app.close();
+    await app?.close();
   });
 
   const token = () => boot.credentials.userToken.token;

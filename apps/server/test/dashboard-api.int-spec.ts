@@ -91,7 +91,7 @@ describe('dashboard support API', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
   });
 
   function agent(): Chronos {

@@ -44,7 +44,7 @@ describe('SDK admin client (ChronosAdmin) against a real server', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
   });
 
   const admin = (token = boot.credentials.projectKey.token, project = 'storefront') => new ChronosAdmin({ server, project, token, maxAttempts: 2 });
