@@ -147,6 +147,12 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          NAME="$(node -p "require('./package.json').name")"
+          VERSION="$(node -p "require('./package.json').version")"
+          # Re-running a release (or a new repository) must not fail on an existing version.
+          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "$NAME@$VERSION is already on npm; skipping"; exit 0
+          fi
           if [ -z "$NODE_AUTH_TOKEN" ]; then echo "::error::Add an npm token as the NPM_TOKEN repository secret"; exit 1; fi
           TAG=latest
           case "$GITHUB_REF_NAME" in *-*) TAG=next ;; esac
