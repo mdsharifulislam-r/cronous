@@ -60,7 +60,7 @@
   },
   "devDependencies": {
     "@chronos/protocol": "workspace:*",
-    "@types/node": "22.20.6",
+    "@types/node": "26.6.6",
     "@types/ws": "8.18.2",
     "esbuild": "0.28.2",
     "typescript": "5.9.3",
