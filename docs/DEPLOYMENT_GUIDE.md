@@ -5,8 +5,8 @@ with each release (`0.1.0`, `0.1`, `latest`):
 
 | Image | Runs |
 | --- | --- |
-| `ghcr.io/mdsharifulislam-r/chronos` | API server (default command), standalone scheduler (`node bin/scheduler/main.js`), worker (`node bin/worker/main.js`) and migrations (`/app/bin/migrate`) |
-| `ghcr.io/mdsharifulislam-r/chronos-dashboard` | Next.js dashboard |
+| `cronouss/cronous` | API server (default command), standalone scheduler (`node bin/scheduler/main.js`), worker (`node bin/worker/main.js`) and migrations (`/app/bin/migrate`) |
+| `cronouss/cronous-dashboard` | Next.js dashboard |
 
 The compose files below pull these images; you do not need the source code. Download them
 from the latest release (or use the copies in `docker/` of a checkout; the commands are the same
@@ -53,7 +53,11 @@ docker compose -f compose.external.yaml up -d
 Or without compose, one container that applies migrations on start:
 
 ```bash
-docker run -d --name chronos --restart unless-stopped -p 127.0.0.1:8080:8080   -e DATABASE_URL=postgresql://chronos:PASSWORD@db-host:5432/chronos   -e REDIS_URL=redis://:PASSWORD@redis-host:6379/0   -e CHRONOS_MIGRATE_ON_START=true   ghcr.io/mdsharifulislam-r/chronos:latest
+docker run -d --name chronos --restart unless-stopped -p 127.0.0.1:8080:8080 \
+  -e DATABASE_URL=postgresql://chronos:PASSWORD@db-host:5432/chronos \
+  -e REDIS_URL=redis://:PASSWORD@redis-host:6379/0 \
+  -e CHRONOS_MIGRATE_ON_START=true \
+  cronouss/cronous:latest
 ```
 
 The migration container runs `prisma migrate deploy`. It is idempotent and safe to

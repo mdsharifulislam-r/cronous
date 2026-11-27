@@ -29,8 +29,8 @@ No checkout or build needed. Chronos is published as container images for `linux
 
 | Image | Contents |
 | --- | --- |
-| `ghcr.io/mdsharifulislam-r/chronos` | API server, scheduler, worker and migrations |
-| `ghcr.io/mdsharifulislam-r/chronos-dashboard` | Web dashboard (optional) |
+| `cronouss/cronous` | API server, scheduler, worker and migrations |
+| `cronouss/cronous-dashboard` | Web dashboard (optional) |
 
 ```bash
 mkdir chronos && cd chronos
@@ -44,7 +44,11 @@ docker compose logs server | grep -A2 "bootstrap token"
 Already running PostgreSQL and Redis? Use the server image directly:
 
 ```bash
-docker run -d --name chronos -p 127.0.0.1:8080:8080   -e DATABASE_URL=postgresql://chronos:PASSWORD@db-host:5432/chronos   -e REDIS_URL=redis://:PASSWORD@redis-host:6379/0   -e CHRONOS_MIGRATE_ON_START=true   ghcr.io/mdsharifulislam-r/chronos:latest
+docker run -d --name chronos -p 127.0.0.1:8080:8080 \
+  -e DATABASE_URL=postgresql://chronos:PASSWORD@db-host:5432/chronos \
+  -e REDIS_URL=redis://:PASSWORD@redis-host:6379/0 \
+  -e CHRONOS_MIGRATE_ON_START=true \
+  cronouss/cronous:latest
 ```
 
 Bootstrap once with that token (creates the admin, organization, project, a project API

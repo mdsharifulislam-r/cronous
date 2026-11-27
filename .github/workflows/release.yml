@@ -1,10 +1,13 @@
 name: Release
 
 # Push a version tag (git tag v0.1.0 && git push origin v0.1.0) to publish:
-#   ghcr.io/<owner>/chronos:<version>            server, scheduler, worker, migrations
-#   ghcr.io/<owner>/chronos-dashboard:<version>  Next.js dashboard
-# for linux/amd64 and linux/arm64, the Node.js SDK to npm (needs the NPM_TOKEN secret),
-# and a GitHub release with compose.yaml and env.example.
+#   cronouss/cronous:<version>             server, scheduler, worker, migrations (Docker Hub)
+#   cronouss/cronous-dashboard:<version>   Next.js dashboard (Docker Hub)
+# for linux/amd64 and linux/arm64, the Node.js SDK to npm, and a GitHub release with
+# compose.yaml and env.example.
+#
+# Repository secrets: DOCKERHUB_USERNAME, DOCKERHUB_TOKEN (Docker Hub access token with
+# read/write access), NPM_TOKEN (npm granular token with read/write access).
 on:
   push:
     tags: ['v*.*.*']
@@ -23,16 +26,15 @@ jobs:
     timeout-minutes: 90
     permissions:
       contents: read
-      packages: write
     strategy:
       fail-fast: true
       matrix:
         include:
-          - image: chronos
+          - image: cronouss/cronous
             dockerfile: docker/Dockerfile
             title: Chronos
             description: Self-hosted distributed job scheduler (server, scheduler, worker)
-          - image: chronos-dashboard
+          - image: cronouss/cronous-dashboard
             dockerfile: docker/Dockerfile.dashboard
             title: Chronos Dashboard
             description: Web dashboard for Chronos
@@ -40,15 +42,22 @@ jobs:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
+      - name: Check Docker Hub credentials
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          if [ -z "$DOCKERHUB_USERNAME" ] || [ -z "$DOCKERHUB_TOKEN" ]; then
+            echo "::error::Add the DOCKERHUB_USERNAME and DOCKERHUB_TOKEN repository secrets"; exit 1
+          fi
       - uses: docker/login-action@v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
       - id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
+          images: docker.io/${{ matrix.image }}
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -71,8 +80,8 @@ jobs:
           annotations: ${{ steps.meta.outputs.annotations }}
           provenance: mode=max
           sbom: true
-          cache-from: type=gha,scope=release-${{ matrix.image }}
-          cache-to: type=gha,mode=max,scope=release-${{ matrix.image }}
+          cache-from: type=gha,scope=release-${{ strategy.job-index }}
+          cache-to: type=gha,mode=max,scope=release-${{ strategy.job-index }}
 
   npm:
     name: Publish SDK to npm
@@ -142,7 +151,7 @@ jobs:
             echo "docker compose up -d"
             echo '```'
             echo
-            echo "Images: \`ghcr.io/${GITHUB_REPOSITORY_OWNER}/chronos:${VERSION}\` and \`ghcr.io/${GITHUB_REPOSITORY_OWNER}/chronos-dashboard:${VERSION}\` (linux/amd64, linux/arm64)."
+            echo "Docker Hub images: \`cronouss/cronous:${VERSION}\` and \`cronouss/cronous-dashboard:${VERSION}\` (linux/amd64, linux/arm64)."
           } >> dist/notes.md
       - name: Create release
         env:

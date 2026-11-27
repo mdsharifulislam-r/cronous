@@ -29,13 +29,13 @@ x-chronos-env: &chronos-env
 
 services:
   migrate:
-    image: ${CHRONOS_IMAGE:-ghcr.io/mdsharifulislam-r/chronos}:${CHRONOS_VERSION:-latest}
+    image: ${CHRONOS_IMAGE:-cronouss/cronous}:${CHRONOS_VERSION:-latest}
     command: ["/app/bin/migrate"]
     environment: *chronos-env
     restart: "no"
 
   server:
-    image: ${CHRONOS_IMAGE:-ghcr.io/mdsharifulislam-r/chronos}:${CHRONOS_VERSION:-latest}
+    image: ${CHRONOS_IMAGE:-cronouss/cronous}:${CHRONOS_VERSION:-latest}
     restart: unless-stopped
     environment:
       <<: *chronos-env
@@ -67,7 +67,7 @@ services:
   #   docker compose ... --profile workers up -d
   # Mount a directory containing your handler module (see apps/worker/examples/handlers.js).
   worker:
-    image: ${CHRONOS_IMAGE:-ghcr.io/mdsharifulislam-r/chronos}:${CHRONOS_VERSION:-latest}
+    image: ${CHRONOS_IMAGE:-cronouss/cronous}:${CHRONOS_VERSION:-latest}
     profiles: ["workers"]
     restart: unless-stopped
     command: ["node", "bin/worker/main.js"]
@@ -92,7 +92,7 @@ services:
   # Optional: a standalone scheduler, for running scheduling separately from the API.
   # Set CHRONOS_EMBEDDED_SCHEDULER=false on the server when you use it.
   scheduler:
-    image: ${CHRONOS_IMAGE:-ghcr.io/mdsharifulislam-r/chronos}:${CHRONOS_VERSION:-latest}
+    image: ${CHRONOS_IMAGE:-cronouss/cronous}:${CHRONOS_VERSION:-latest}
     profiles: ["scale"]
     restart: unless-stopped
     command: ["node", "bin/scheduler/main.js"]
@@ -111,7 +111,7 @@ services:
   # Optional full dashboard (Next.js): docker compose --profile dashboard up -d
   dashboard:
     profiles: ["dashboard"]
-    image: ${CHRONOS_DASHBOARD_IMAGE:-ghcr.io/mdsharifulislam-r/chronos-dashboard}:${CHRONOS_VERSION:-latest}
+    image: ${CHRONOS_DASHBOARD_IMAGE:-cronouss/cronous-dashboard}:${CHRONOS_VERSION:-latest}
     restart: unless-stopped
     depends_on:
       server:

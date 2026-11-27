@@ -106,7 +106,7 @@ The worker takes the shared process variables above, plus:
 | `POSTGRES_USER`, `POSTGRES_DB` | `chronos` | Bundled PostgreSQL (compose.yaml) |
 | `POSTGRES_PASSWORD`, `REDIS_PASSWORD` | – (required) | Bundled PostgreSQL and Redis; use `openssl rand -hex 32` |
 | `CHRONOS_VERSION` | `latest` (a release's own compose file: that release) | Image tag to run, e.g. `0.1.0` |
-| `CHRONOS_IMAGE`, `CHRONOS_DASHBOARD_IMAGE` | `ghcr.io/mdsharifulislam-r/chronos`, `…/chronos-dashboard` | Image names, for a mirror or private registry |
+| `CHRONOS_IMAGE`, `CHRONOS_DASHBOARD_IMAGE` | `cronouss/cronous`, `cronouss/cronous-dashboard` | Image names, for a mirror or private registry |
 | `CHRONOS_HTTP_BIND` | `127.0.0.1` | Host interface the API is published on |
 | `CHRONOS_HTTP_PORT` | `8080` | Host port |
 | `CHRONOS_WORKER_HANDLERS_DIR` | `./handlers` (next to the compose file) | Host directory mounted read-only at `/handlers` |
