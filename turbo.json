@@ -52,6 +52,12 @@
         "^build"
       ],
       "outputs": []
+    },
+    "@chronos/database#typecheck": {
+      "dependsOn": [
+        "build"
+      ],
+      "outputs": []
     }
   }
 }
