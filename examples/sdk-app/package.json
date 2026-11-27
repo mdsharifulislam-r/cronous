@@ -14,7 +14,7 @@
     "@cronous/cronous": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "22.20.6",
+    "@types/node": "26.6.6",
     "typescript": "5.9.3"
   },
   "repository": {
