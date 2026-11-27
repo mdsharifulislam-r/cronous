@@ -37,7 +37,7 @@ jobs:
           - { key: dashboard, repo: cronouss/cronous-dashboard, dockerfile: docker/Dockerfile.dashboard, arch: amd64, runner: ubuntu-24.04 }
           - { key: dashboard, repo: cronouss/cronous-dashboard, dockerfile: docker/Dockerfile.dashboard, arch: arm64, runner: ubuntu-24.04-arm }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check Docker Hub credentials
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -125,7 +125,7 @@ jobs:
       contents: read
       id-token: write # npm provenance
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
         with:
           version: '9.15.0'
@@ -171,7 +171,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Prepare assets
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
