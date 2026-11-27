@@ -1,4 +1,4 @@
-# @chronos/sdk
+# @cronouss/cronous
 
 Node.js client for [Chronos](https://github.com/mdsharifulislam-r/cronous), a self-hosted
 distributed job scheduler.
@@ -9,7 +9,7 @@ distributed job scheduler.
 * **Admin:** manage jobs, schedules, queues and executions from code, and follow results.
 
 ```bash
-npm install @chronos/sdk
+npm install @cronouss/cronous
 ```
 
 Requires Node.js 20.11 or later and a running Chronos server. You can start one with Docker; see the
@@ -32,7 +32,7 @@ Keep tokens in environment variables. `Chronos` reads `CHRONOS_AGENT_TOKEN`, and
 ## Worker: run handlers in your application
 
 ```ts
-import { Chronos, NonRetryableError } from '@chronos/sdk';
+import { Chronos, NonRetryableError } from '@cronouss/cronous';
 
 const chronos = new Chronos({
   server: 'https://chronos.example.com',
@@ -93,7 +93,7 @@ Chronos central worker or an HTTP webhook. The producer does not need to know wh
 ## Admin: manage Chronos from code
 
 ```ts
-import { ChronosAdmin } from '@chronos/sdk';
+import { ChronosAdmin } from '@cronouss/cronous';
 
 const admin = new ChronosAdmin({
   server: 'https://chronos.example.com',

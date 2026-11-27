@@ -72,7 +72,7 @@ export function SetupForm() {
             <p>Copy these credentials now and store them in your secret manager. They are shown only once.</p>
           </div>
           <Secret label="Project API key (server-to-server REST)" value={result.credentials.projectKey.token} />
-          <Secret label="Agent token (CHRONOS_AGENT_TOKEN for @chronos/sdk)" value={result.credentials.agentToken.token} />
+          <Secret label="Agent token (CHRONOS_AGENT_TOKEN for @cronouss/cronous)" value={result.credentials.agentToken.token} />
           <Button className="w-full" onClick={() => { router.replace('/'); router.refresh(); }}>I saved them, open the dashboard</Button>
         </CardContent>
       </Card>

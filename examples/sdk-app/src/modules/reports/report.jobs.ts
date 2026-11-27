@@ -1,4 +1,4 @@
-import { NonRetryableError } from '@chronos/sdk';
+import { NonRetryableError } from '@cronouss/cronous';
 import { chronos } from '../../config/chronos';
 
 chronos.task(

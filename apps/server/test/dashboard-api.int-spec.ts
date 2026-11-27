@@ -1,7 +1,7 @@
 import type { AddressInfo } from 'node:net';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { Chronos } from '@chronos/sdk';
+import { Chronos } from '@cronouss/cronous';
 import { PrismaService } from '../src/infrastructure/prisma/prisma.service';
 import { SchedulerHost } from '../src/infrastructure/engine/scheduler-host';
 import { BootstrapService } from '../src/modules/bootstrap/bootstrap.service';
