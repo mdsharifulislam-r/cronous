@@ -14,6 +14,105 @@ retries failures with backoff, and recovers from crashed workers, agents and sch
 Delivery is **at-least-once**, so make handlers idempotent (every execution carries a
 stable `idempotencyKey`).
 
+## How it works
+
+Chronos is a **task queue and scheduler**. Something says "run this job", Chronos stores it,
+decides when it runs, hands it to exactly one handler, and retries it if it fails.
+
+### Concepts
+
+| Term | Meaning |
+| --- | --- |
+| **Job** | A named unit of work, e.g. `send-email`. It has a mode, retry settings and an optional cron schedule. |
+| **Execution** | One run of a job, with its own payload, status, attempts and logs. |
+| **Producer** | Anything that submits an execution: `chronos.queue()`, the REST API, the dashboard, or the job's own cron schedule. |
+| **Handler** | The code that does the work: a `chronos.task()` function in your app, your HTTP endpoint, or a central worker. |
+| **Queue** | A lane with a concurrency limit and priorities. It can be paused. Every job belongs to one queue (`default` unless set). |
+
+### Lifecycle of an execution
+
+```
+ producer                     Chronos (PostgreSQL + Redis)                  handler
+ ────────                     ────────────────────────────                  ───────
+ queue('send-email', data) ─► 1. stored durably ............ PENDING
+ or a cron schedule fires     2. waits for its time if delayed
+                              3. admitted by its queue
+                                 (concurrency, priority) ... QUEUED
+                              4. delivered by job mode ─────────────────►  AGENT:  your app's chronos.task()
+                                                                           HTTP:   POST to your endpoint
+                                                                           WORKER: Chronos worker container
+                              5. handler runs ............... RUNNING  ◄──  logs, heartbeat
+                              6. result stored .............. SUCCEEDED
+                                 on failure: retry with backoff (RETRY_SCHEDULED),
+                                 after the last attempt ...... DEAD_LETTERED (replayable)
+```
+
+### Example: one service produces, another consumes
+
+```ts
+// email-service (consumer): keep this process running
+import { Chronos } from '@cronous/cronous';
+const chronos = new Chronos({ server: 'http://chronos:8080', project: 'storefront' }); // CHRONOS_AGENT_TOKEN
+
+chronos.task('order.send-email', async ({ payload, idempotencyKey }) => {
+  await sendOrderEmail(payload.orderId, payload.email);   // return = success, throw = retry
+});
+await chronos.start();
+```
+
+```ts
+// order-service (producer): no start() needed, queue() is a single HTTP call
+import { Chronos } from '@cronous/cronous';
+const chronos = new Chronos({ server: 'http://chronos:8080', project: 'storefront' });
+
+await chronos.queue('order.send-email', { orderId: 42, email: 'a@example.com' });           // now
+await chronos.queue('order.send-email', { orderId: 42, email: 'a@example.com' }, { delay: 60_000 }); // in 1 minute
+```
+
+Producers from other languages use the REST API:
+`POST /v1/projects/:projectId/queue` with `{"job":"order.send-email","payload":{…},"delayMs":60000}`
+and a project API key.
+
+What you can rely on:
+
+* **The job must exist.** A worker's `chronos.task('order.send-email')` creates it when the worker
+  connects. You can also create it through the API or the dashboard. `queue()` with an unknown
+  name fails with `ChronosNotFoundError`.
+* **Nothing is lost while consumers are offline.** Executions wait in PostgreSQL until a handler
+  connects.
+* **Scale by running more copies.** Start three instances of the email-service and executions
+  are shared between them. Each execution goes to **one** instance.
+* **Failures are retried** with exponential backoff (`maxAttempts`, `backoff`). Throw
+  `NonRetryableError` to stop retrying. Exhausted executions become dead letters that you can
+  replay from the dashboard or the API.
+* **At-least-once delivery.** After a crash or network split a handler can run twice, so use
+  `ctx.idempotencyKey` for side effects.
+
+### Compared with Kafka and other message brokers
+
+| Kafka | Chronos |
+| --- | --- |
+| `producer.send({ topic })` | `chronos.queue('job-name', payload)` |
+| Topic | Job name |
+| `consumer.subscribe()` + `eachMessage` | `chronos.task('job-name', handler)` |
+| Consumer group, with partitions shared | Several instances of the same task, with executions shared |
+| Commit the offset | Return from the handler |
+| Build retries and DLQs yourself | Retries, backoff, delays, cron, dead letters, a dashboard and per-execution history are built in |
+
+The key difference: **Chronos does not broadcast.** In Kafka every consumer group receives every
+message (pub/sub). In Chronos an execution runs **once, in one handler**, like a work queue.
+To trigger several kinds of work from one event, submit one job per kind of work:
+
+```ts
+await chronos.queue('order.send-email', order);     // handled by email-service
+await chronos.queue('order.update-stock', order);   // handled by inventory-service
+await chronos.queue('order.track', order);          // handled by analytics-service
+```
+
+Use Kafka for event streams that many services read and replay. Use Chronos for work that
+must be done, possibly later or on a schedule, with retries and visibility. Many systems
+use both: a Kafka consumer calls `chronos.queue()`.
+
 ## Execution modes
 
 | Mode | How it runs | Use when |
