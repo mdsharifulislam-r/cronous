@@ -1,0 +1,73 @@
+{
+  "name": "@cronous/nestjs",
+  "version": "0.1.1",
+  "description": "NestJS integration for Chronos: register job handlers with decorators, inject the Chronos client and admin API",
+  "keywords": [
+    "chronos",
+    "nestjs",
+    "nest",
+    "job-scheduler",
+    "cron",
+    "queue",
+    "background-jobs",
+    "delayed-jobs",
+    "worker"
+  ],
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mdsharifulislam-r/cronous.git",
+    "directory": "packages/nestjs"
+  },
+  "homepage": "https://github.com/mdsharifulislam-r/cronous/tree/main/packages/nestjs#readme",
+  "bugs": {
+    "url": "https://github.com/mdsharifulislam-r/cronous/issues"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint . --max-warnings=0"
+  },
+  "peerDependencies": {
+    "@cronous/cronous": "workspace:^",
+    "@nestjs/common": "^10.0.0 || ^11.0.0",
+    "@nestjs/core": "^10.0.0 || ^11.0.0",
+    "reflect-metadata": "^0.1.13 || ^0.2.0"
+  },
+  "devDependencies": {
+    "@cronous/cronous": "workspace:*",
+    "@nestjs/common": "11.2.12",
+    "@nestjs/core": "11.2.12",
+    "@nestjs/testing": "11.2.12",
+    "@swc/core": "1.13.21",
+    "@types/node": "22.20.6",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2",
+    "typescript": "5.9.3",
+    "unplugin-swc": "1.6.0",
+    "vitest": "3.2.7"
+  }
+}

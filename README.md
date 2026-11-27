@@ -239,6 +239,82 @@ for await (const failed of admin.executions.iterate({ status: 'DEAD_LETTERED' })
 await admin.queues.pause('emails');
 ```
 
+## NestJS
+
+[`@cronous/nestjs`](packages/nestjs/README.md) registers Chronos as a Nest module. Handlers are
+decorated methods in ordinary providers, with full dependency injection; `Chronos` and
+`ChronosAdmin` are injectable.
+
+```bash
+npm install @cronous/nestjs @cronous/cronous
+```
+
+```ts
+@Module({
+  imports: [ChronosModule.forRoot({ server: 'http://localhost:8080', project: 'shop' })], // tokens: CHRONOS_AGENT_TOKEN, CHRONOS_API_KEY
+  providers: [EmailJobs],
+})
+export class AppModule {}
+
+@Injectable()
+export class EmailJobs {
+  constructor(private readonly mailer: MailerService, private readonly chronos: Chronos) {}
+
+  @Task('email.send', { queue: 'emails', maxAttempts: 5 })
+  send(@Payload() email: { to: string }, @Ctx() ctx: TaskContext) {
+    return this.mailer.send(email, { idempotencyKey: ctx.idempotencyKey });
+  }
+
+  @Task('report.daily', { schedule: '0 2 * * *', timezone: 'UTC' })
+  daily() { /* … */ }
+
+  welcome(to: string) {
+    return this.chronos.queue('email.send', { to }, { delay: 60_000 });
+  }
+}
+```
+
+Call `app.enableShutdownHooks()` so running handlers finish on SIGTERM. Options, decorators
+and rules: [packages/nestjs/README.md](packages/nestjs/README.md).
+
+## Python and FastAPI
+
+[`cronous`](sdks/python/README.md) on PyPI is the Python client: async agent, producer and
+admin API, plus FastAPI support. Handler arguments come from type hints, and a pydantic
+payload model also becomes the job's payload schema, so Chronos rejects bad submissions before
+they are queued.
+
+```bash
+pip install "cronous[fastapi]"
+```
+
+```python
+from fastapi import FastAPI
+from pydantic import BaseModel
+from cronous import Chronos, TaskContext
+from cronous.fastapi import ChronosDep, setup
+
+chronos = Chronos(server="http://localhost:8080", project="shop")  # CHRONOS_AGENT_TOKEN
+
+class SendEmail(BaseModel):
+    to: str
+
+@chronos.task("email.send", queue="emails", max_attempts=5)
+async def send_email(email: SendEmail, ctx: TaskContext) -> dict:
+    ctx.log.info("sending", {"to": email.to})
+    return {"sent": True}
+
+app = FastAPI()
+setup(app, chronos)  # starts the agent with the app and stops it gracefully
+
+@app.post("/signup")
+async def signup(email: SendEmail, chronos: ChronosDep):
+    return await chronos.queue("email.send", email, delay=60)
+```
+
+Task routers, sync handlers, the admin client and all options:
+[sdks/python/README.md](sdks/python/README.md).
+
 ## HTTP webhook and worker jobs
 
 ```bash
@@ -264,6 +340,8 @@ apps/dashboard-lite  bundled static UI served by the server at /dashboard
 packages/engine    scheduler, dispatcher, execution state machine, reaper, webhook executor, worker runtime
 packages/protocol  versioned agent protocol + job definition schemas
 packages/sdk       @cronous/cronous
+packages/nestjs    @cronous/nestjs (NestJS module and @Task() decorators)
+sdks/python        cronous on PyPI (Python client and FastAPI integration)
 packages/database  Prisma schema, migrations, seed
 packages/shared    env validation, crypto, Redis keyspace, cron/timezone planner
 examples/sdk-app   example application

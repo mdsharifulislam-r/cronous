@@ -103,6 +103,28 @@ jobs:
           docker compose --env-file ci.env -f docker/compose.external.yaml -f docker/compose.network.yaml --profile dashboard config -q
           docker compose -f docker/compose.test.yaml config -q
 
+  python:
+    name: Python SDK (${{ matrix.python }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.10', '3.13']
+    defaults:
+      run:
+        working-directory: sdks/python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install -e ".[fastapi]" pytest pytest-asyncio ruff mypy
+      - run: ruff check src tests
+      - run: ruff format --check src tests
+      - run: mypy src
+      - run: pytest -q
+
   audit:
     name: Dependency audit
     runs-on: ubuntu-latest

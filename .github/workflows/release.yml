@@ -118,12 +118,15 @@ jobs:
         run: docker buildx imagetools inspect "docker.io/${{ matrix.repo }}:${{ steps.meta.outputs.version }}"
 
   npm:
-    name: Publish SDK to npm
+    name: Publish packages to npm
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
       id-token: write # npm provenance
+    env:
+      # Published in this order: @cronous/nestjs depends on @cronous/cronous.
+      PACKAGES: packages/sdk packages/nestjs
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -136,32 +139,75 @@ jobs:
           registry-url: https://registry.npmjs.org
       - run: pnpm install --frozen-lockfile
       - name: Set version from tag
-        working-directory: packages/sdk
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          npm version "$VERSION" --no-git-tag-version --allow-same-version
-          sed -i "s/SDK_VERSION = '[^']*'/SDK_VERSION = '$VERSION'/" src/version.ts
-      - run: pnpm turbo run build test --filter=./packages/sdk...
+          for dir in $PACKAGES; do
+            (cd "$dir" && npm version "$VERSION" --no-git-tag-version --allow-same-version)
+          done
+          sed -i "s/SDK_VERSION = '[^']*'/SDK_VERSION = '$VERSION'/" packages/sdk/src/version.ts
+      - run: pnpm turbo run build test --filter=./packages/sdk... --filter=./packages/nestjs...
       - name: Publish
-        working-directory: packages/sdk
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          NAME="$(node -p "require('./package.json').name")"
-          VERSION="$(node -p "require('./package.json').version")"
-          # Re-running a release (or a new repository) must not fail on an existing version.
-          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
-            echo "$NAME@$VERSION is already on npm; skipping"; exit 0
-          fi
           if [ -z "$NODE_AUTH_TOKEN" ]; then echo "::error::Add an npm token as the NPM_TOKEN repository secret"; exit 1; fi
           TAG=latest
           case "$GITHUB_REF_NAME" in *-*) TAG=next ;; esac
           # Shows which npm account the token belongs to (fails clearly on a bad token).
           NPM_USER="$(npm whoami)"
           echo "Publishing as npm user: $NPM_USER"
-          # pnpm pack rewrites workspace: ranges; npm publishes with provenance.
-          pnpm pack --pack-destination "$RUNNER_TEMP"
-          npm publish "$RUNNER_TEMP"/*.tgz --access public --tag "$TAG" --provenance
+          for dir in $PACKAGES; do
+            NAME="$(node -p "require('./$dir/package.json').name")"
+            VERSION="$(node -p "require('./$dir/package.json').version")"
+            # Re-running a release must not fail on a version that is already published.
+            if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+              echo "$NAME@$VERSION is already on npm; skipping"; continue
+            fi
+            OUT="$RUNNER_TEMP/pack-${NAME//[@\/]/_}"
+            mkdir -p "$OUT"
+            # pnpm pack rewrites workspace: ranges; npm publishes with provenance.
+            (cd "$dir" && pnpm pack --pack-destination "$OUT")
+            npm publish "$OUT"/*.tgz --access public --tag "$TAG" --provenance
+          done
+
+  pypi:
+    name: Publish Python SDK to PyPI
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Trusted publishing: register this workflow as a publisher of "cronous" on pypi.org.
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: sdks/python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Set version from tag
+        id: version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          # PEP 440: 1.2.0-rc.1 -> 1.2.0rc1
+          PY_VERSION="$(echo "$VERSION" | sed -E 's/-(a|alpha)\.?/a/; s/-(b|beta)\.?/b/; s/-rc\.?/rc/')"
+          sed -i "s/^__version__ = .*/__version__ = \"$PY_VERSION\"/" src/cronous/_version.py
+          echo "version=$PY_VERSION" >> "$GITHUB_OUTPUT"
+          if curl -fsS -o /dev/null "https://pypi.org/pypi/cronous/$PY_VERSION/json"; then
+            echo "cronous $PY_VERSION is already on PyPI; skipping"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.version.outputs.skip != 'true'
+        run: |
+          pip install -e ".[fastapi]" pytest pytest-asyncio build
+          pytest -q
+          python -m build
+      - if: steps.version.outputs.skip != 'true'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: sdks/python/dist
 
   release:
     name: GitHub release
@@ -197,6 +243,8 @@ jobs:
             echo '```'
             echo
             echo "Docker Hub images: \`cronouss/cronous:${VERSION}\` and \`cronouss/cronous-dashboard:${VERSION}\` (linux/amd64, linux/arm64)."
+            echo
+            echo "Clients: \`npm install @cronous/cronous\`, \`npm install @cronous/nestjs\`, \`pip install cronous\`."
           } >> dist/notes.md
       - name: Create release
         env:

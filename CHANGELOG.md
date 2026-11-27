@@ -6,6 +6,21 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-11-27
+
+### Added
+
+* **`@cronous/nestjs`**: NestJS integration. `ChronosModule.forRoot()` / `forRootAsync()`
+  configure the client; methods decorated with `@Task(name, options)` (alias `@TaskReg`) are
+  registered as handlers on bootstrap, with `@Payload()` and `@Ctx()` parameter decorators.
+  `Chronos` and `ChronosAdmin` are injectable; the agent stops gracefully on shutdown.
+* **Python SDK** (`pip install cronous`): async agent, producer and admin client with the
+  same protocol and guarantees as the Node.js SDK. Handlers are registered with
+  `@chronos.task(...)` or `TaskRouter`, receive arguments from their type hints, and a pydantic
+  payload model becomes the job's payload schema. Sync handlers run in a thread.
+  `cronous.fastapi` adds `setup(app, chronos)`, a lifespan, `ChronosDep` / `AdminDep`
+  dependencies and error-to-HTTP mapping.
+
 ## [0.1.1] - 2026-11-27
 
 ### Changed
