@@ -37,7 +37,7 @@
   "devDependencies": {
     "@cronous/cronous": "workspace:*",
     "@nestjs/cli": "11.0.24",
-    "@swc/core": "1.13.21",
+    "@swc/core": "1.16.22",
     "@types/express": "5.0.6",
     "@types/node": "22.20.6",
     "@types/supertest": "6.0.3",
