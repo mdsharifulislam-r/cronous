@@ -28,7 +28,7 @@ queue.
 ## SDK
 
 ```ts
-import { Chronos, ChronosValidationError } from '@sharifulislam1/cronous';
+import { Chronos, ChronosValidationError } from '@cronous/cronous';
 
 const chronos = new Chronos({ server: process.env.CHRONOS_SERVER!, project: 'storefront' });
 

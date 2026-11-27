@@ -38,7 +38,7 @@ export function AgentsPage() {
 
   return (
     <div>
-      <PageHeader title="Agents" description="Application processes running @sharifulislam1/cronous for this project. They connect outbound over WebSocket and run agent-mode jobs in-process." />
+      <PageHeader title="Agents" description="Application processes running @cronous/cronous for this project. They connect outbound over WebSocket and run agent-mode jobs in-process." />
       <Card>
         <div className="flex flex-wrap items-center gap-2 border-b border-border p-3">
           <div className="relative min-w-52 flex-1">

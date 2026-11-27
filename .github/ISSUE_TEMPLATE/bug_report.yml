@@ -17,7 +17,7 @@ body:
     id: component
     attributes:
       label: Component
-      options: [Server / API, Scheduler, Worker, SDK (@sharifulislam1/cronous), Dashboard, Docker / deployment, Documentation]
+      options: [Server / API, Scheduler, Worker, SDK (@cronous/cronous), Dashboard, Docker / deployment, Documentation]
     validations:
       required: true
   - type: dropdown

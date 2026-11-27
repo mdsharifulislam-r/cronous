@@ -4,7 +4,7 @@ Chronos has **two unrelated real-time channels**. Do not mix them up:
 
 | | Agent protocol | Dashboard real-time protocol |
 | --- | --- | --- |
-| Purpose | Deliver executions to application code (`@sharifulislam1/cronous`) and collect results | Tell a UI that something changed |
+| Purpose | Deliver executions to application code (`@cronous/cronous`) and collect results | Tell a UI that something changed |
 | Transport | WebSocket, `GET /v1/agent/ws` | Server-Sent Events, `GET /v1/projects/:projectId/events` |
 | Credential | Agent token `chr_a_` (which can also submit jobs over REST, see [QUEUE_JOBS.md](QUEUE_JOBS.md)) | User session `chr_u_` or project key `chr_p_` |
 | Direction | Bidirectional | Server → client only |
@@ -18,7 +18,7 @@ event stream.
 
 ## Agent protocol
 
-Version 1. Implemented by `@sharifulislam1/cronous`; most applications never see these frames.
+Version 1. Implemented by `@cronous/cronous`; most applications never see these frames.
 
 ### Connection and authentication
 

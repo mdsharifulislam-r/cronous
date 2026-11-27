@@ -99,7 +99,7 @@ export function CredentialsPage() {
         <CardHeader>
           <div>
             <CardTitle>Credentials of {project!.name}</CardTitle>
-            <CardDescription>API keys (chr_p_) call the REST API from your servers. Agent tokens (chr_a_) connect @sharifulislam1/cronous agents and submit jobs. Tokens are shown once.</CardDescription>
+            <CardDescription>API keys (chr_p_) call the REST API from your servers. Agent tokens (chr_a_) connect @cronous/cronous agents and submit jobs. Tokens are shown once.</CardDescription>
           </div>
           <div className="flex gap-2">
             <Button size="sm" variant="secondary" onClick={() => setCreating({ kind: 'AGENT', name: '', expiresInDays: '' })}><Plus /> Agent token</Button>

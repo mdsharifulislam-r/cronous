@@ -19,7 +19,7 @@ stable `idempotencyKey`).
 | Mode | How it runs | Use when |
 | --- | --- | --- |
 | **HTTP webhook** | Chronos calls your endpoint (signed, with timeouts, retries and SSRF protection) | Your app already exposes HTTP endpoints |
-| **Agent** | Your app runs `@sharifulislam1/cronous`, which keeps an **outbound** WebSocket and runs handlers in-process | Code should run inside your app, which has no public inbound port |
+| **Agent** | Your app runs `@cronous/cronous`, which keeps an **outbound** WebSocket and runs handlers in-process | Code should run inside your app, which has no public inbound port |
 | **Central worker** | Chronos worker processes run handler modules you mount | Jobs should run independently of your app servers |
 
 ## Quick start (Docker, bundled PostgreSQL + Redis)
@@ -70,7 +70,7 @@ networks, separate VPSs, workers and scaling.
 ## Node.js SDK
 
 ```bash
-npm install @sharifulislam1/cronous
+npm install @cronous/cronous
 ```
 
 One package for workers (run handlers in your app), producers (submit immediate and delayed
@@ -79,7 +79,7 @@ guide: [packages/sdk/README.md](packages/sdk/README.md).
 
 ```ts
 // src/config/chronos.ts
-import { Chronos } from '@sharifulislam1/cronous';
+import { Chronos } from '@cronous/cronous';
 
 export const chronos = new Chronos({
   server: process.env.CHRONOS_SERVER!,   // e.g. https://chronos.example.com
@@ -130,7 +130,7 @@ schedule run when triggered from the API or dashboard. A complete example lives 
 Manage Chronos from code with a project API key (`chr_p_`):
 
 ```ts
-import { ChronosAdmin } from '@sharifulislam1/cronous';
+import { ChronosAdmin } from '@cronous/cronous';
 
 const admin = new ChronosAdmin({ server: process.env.CHRONOS_SERVER!, project: 'storefront' }); // token: CHRONOS_API_KEY
 await admin.jobs.create({ name: 'sync-crm', mode: 'HTTP', http: { url: 'https://app.example.com/hooks/sync', method: 'POST' }, schedule: { cron: '*/15 * * * *' } });
@@ -164,7 +164,7 @@ apps/dashboard     Next.js dashboard (full UI)
 apps/dashboard-lite  bundled static UI served by the server at /dashboard
 packages/engine    scheduler, dispatcher, execution state machine, reaper, webhook executor, worker runtime
 packages/protocol  versioned agent protocol + job definition schemas
-packages/sdk       @sharifulislam1/cronous
+packages/sdk       @cronous/cronous
 packages/database  Prisma schema, migrations, seed
 packages/shared    env validation, crypto, Redis keyspace, cron/timezone planner
 examples/sdk-app   example application

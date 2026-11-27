@@ -11,7 +11,7 @@ import {
   ChronosValidationError,
   ChronosWaitTimeoutError,
   NonRetryableError,
-} from '@sharifulislam1/cronous';
+} from '@cronous/cronous';
 import { SchedulerHost } from '../src/infrastructure/engine/scheduler-host';
 import { BootstrapService } from '../src/modules/bootstrap/bootstrap.service';
 import { BootstrapResult, api, bearer, bootstrapInstallation, resetState, startTestApp } from './setup/test-app';

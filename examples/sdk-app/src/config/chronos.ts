@@ -1,4 +1,4 @@
-import { Chronos } from '@sharifulislam1/cronous';
+import { Chronos } from '@cronous/cronous';
 
 /**
  * One shared SDK instance for the whole application. Import it from any module to

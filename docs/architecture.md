@@ -44,7 +44,7 @@ is implemented and covered by tests unless marked otherwise.
 | `packages/shared` | Env validation, token/password crypto, Redis keyspace, cron/timezone planner |
 | `packages/protocol` | Versioned agent wire protocol and job-definition schemas (shared by server and SDK) |
 | `packages/engine` | Scheduler, dispatcher, execution state machine, reaper, webhook executor, worker runtime |
-| `packages/sdk` | `@sharifulislam1/cronous` |
+| `packages/sdk` | `@cronous/cronous` |
 | `examples/sdk-app` | Example application using the SDK |
 
 **Why the engine is a plain library and the scheduler/worker are not Nest apps:** the
