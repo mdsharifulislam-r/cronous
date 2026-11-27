@@ -20,28 +20,24 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Each platform builds natively (arm64 on GitHub's ARM runners; QEMU emulation crashes
+  # Node during pnpm install) and pushes by digest. The merge job then creates the tags.
   images:
-    name: Publish ${{ matrix.image }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
+    name: Build ${{ matrix.repo }} (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
     permissions:
       contents: read
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         include:
-          - image: cronouss/cronous
-            dockerfile: docker/Dockerfile
-            title: Chronos
-            description: Self-hosted distributed job scheduler (server, scheduler, worker)
-          - image: cronouss/cronous-dashboard
-            dockerfile: docker/Dockerfile.dashboard
-            title: Chronos Dashboard
-            description: Web dashboard for Chronos
+          - { key: server, repo: cronouss/cronous, dockerfile: docker/Dockerfile, arch: amd64, runner: ubuntu-24.04 }
+          - { key: server, repo: cronouss/cronous, dockerfile: docker/Dockerfile, arch: arm64, runner: ubuntu-24.04-arm }
+          - { key: dashboard, repo: cronouss/cronous-dashboard, dockerfile: docker/Dockerfile.dashboard, arch: amd64, runner: ubuntu-24.04 }
+          - { key: dashboard, repo: cronouss/cronous-dashboard, dockerfile: docker/Dockerfile.dashboard, arch: arm64, runner: ubuntu-24.04-arm }
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
       - name: Check Docker Hub credentials
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -50,6 +46,7 @@ jobs:
           if [ -z "$DOCKERHUB_USERNAME" ] || [ -z "$DOCKERHUB_TOKEN" ]; then
             echo "::error::Add the DOCKERHUB_USERNAME and DOCKERHUB_TOKEN repository secrets"; exit 1
           fi
+      - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -57,31 +54,68 @@ jobs:
       - id: meta
         uses: docker/metadata-action@v5
         with:
-          images: docker.io/${{ matrix.image }}
+          images: docker.io/${{ matrix.repo }}
+          labels: |
+            org.opencontainers.image.licenses=Apache-2.0
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/${{ matrix.arch }}
+          labels: ${{ steps.meta.outputs.labels }}
+          outputs: type=image,name=docker.io/${{ matrix.repo }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=release-${{ matrix.key }}-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=release-${{ matrix.key }}-${{ matrix.arch }}
+      - name: Export digest
+        run: |
+          mkdir -p "$RUNNER_TEMP/digests"
+          digest="${{ steps.build.outputs.digest }}"
+          touch "$RUNNER_TEMP/digests/${digest#sha256:}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.key }}-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  manifests:
+    name: Tag ${{ matrix.repo }}
+    needs: images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        include:
+          - { key: server, repo: cronouss/cronous }
+          - { key: dashboard, repo: cronouss/cronous-dashboard }
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-${{ matrix.key }}-*
+          merge-multiple: true
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: docker.io/${{ matrix.repo }}
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
-          labels: |
-            org.opencontainers.image.title=${{ matrix.title }}
-            org.opencontainers.image.description=${{ matrix.description }}
-            org.opencontainers.image.licenses=Apache-2.0
-          annotations: |
-            org.opencontainers.image.description=${{ matrix.description }}
-            org.opencontainers.image.licenses=Apache-2.0
-      - uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ${{ matrix.dockerfile }}
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          annotations: ${{ steps.meta.outputs.annotations }}
-          provenance: mode=max
-          sbom: true
-          cache-from: type=gha,scope=release-${{ strategy.job-index }}
-          cache-to: type=gha,mode=max,scope=release-${{ strategy.job-index }}
+      - name: Create multi-platform tags
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") $(printf 'docker.io/${{ matrix.repo }}@sha256:%s ' *)
+      - name: Inspect
+        run: docker buildx imagetools inspect "docker.io/${{ matrix.repo }}:${{ steps.meta.outputs.version }}"
 
   npm:
     name: Publish SDK to npm
@@ -113,14 +147,19 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          if [ -z "$NODE_AUTH_TOKEN" ]; then echo "::error::Add an npm automation token as the NPM_TOKEN repository secret"; exit 1; fi
+          if [ -z "$NODE_AUTH_TOKEN" ]; then echo "::error::Add an npm token as the NPM_TOKEN repository secret"; exit 1; fi
           TAG=latest
           case "$GITHUB_REF_NAME" in *-*) TAG=next ;; esac
-          pnpm publish --access public --tag "$TAG" --no-git-checks
+          # Shows which npm account the token belongs to (fails clearly on a bad token).
+          NPM_USER="$(npm whoami)"
+          echo "Publishing as npm user: $NPM_USER"
+          # pnpm pack rewrites workspace: ranges; npm publishes with provenance.
+          pnpm pack --pack-destination "$RUNNER_TEMP"
+          npm publish "$RUNNER_TEMP"/*.tgz --access public --tag "$TAG" --provenance
 
   release:
     name: GitHub release
-    needs: [images, npm]
+    needs: [manifests, npm]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
