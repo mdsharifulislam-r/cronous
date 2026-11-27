@@ -33,7 +33,10 @@ COPY packages/engine/package.json packages/engine/
 COPY packages/sdk/package.json packages/sdk/
 COPY examples/sdk-app/package.json examples/sdk-app/
 # The Next.js dashboard (apps/dashboard) has its own image (docker/Dockerfile.dashboard).
-RUN pnpm install --frozen-lockfile --filter='!@chronos/dashboard'
+# --ignore-scripts: no install script is needed for this build (Prisma downloads its engines
+# in `prisma generate`), and @swc/core's postinstall (used only by the server's tests) crashes
+# on linux/arm64.
+RUN pnpm install --frozen-lockfile --ignore-scripts --filter='!@chronos/dashboard'
 
 COPY packages packages
 COPY apps apps
